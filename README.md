@@ -1,6 +1,6 @@
 # zkLambda
 
-This is a draft proposal for provable anonymous functions as a platform.
+This is a draft proposal for provable anonymous functions.
 
 ## Motivation
 
