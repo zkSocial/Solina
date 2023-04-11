@@ -1,20 +1,26 @@
 use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
-use hyper::StatusCode;
+use hyper::{StatusCode, Method};
 use serde_json::json;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 
-async fn handle_hello_world(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let response = json!({
-        "message": "Hello from the API!"
-    });
+async fn handle_hello_world(request: Request<Body>) -> Result<Response<Body>, Infallible> {
+    let mut response = Response::new(Body::empty());
 
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", "application/json")
-        .body(Body::from(response.to_string()))
-        .unwrap())
+    match (request.method(), request.uri().path()) {
+        (&Method::GET, "/") => {
+            *response.body_mut() = Body::from("Try POSTing data to /echo");
+        },
+        (&Method::POST, "/echo") => {
+            *response.body_mut() = request.into_body();
+        },
+        _ => {
+            *response.status_mut() = StatusCode::NOT_FOUND;
+        },
+    };
+
+    Ok(response)
 }
 
 #[tokio::main]
@@ -48,3 +54,5 @@ async fn shutdown_signal() {
         .await
         .expect("failed to install CTRL+C signal handler");
 }
+
+
