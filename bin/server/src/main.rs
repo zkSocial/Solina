@@ -3,7 +3,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{StatusCode, Method};
 use serde_json::json;
 use std::convert::Infallible;
-use std::net::SocketAddr;
+use futures::TryStreamExt as _;
 
 async fn handle_hello_world(request: Request<Body>) -> Result<Response<Body>, Infallible> {
     let mut response = Response::new(Body::empty());
@@ -14,6 +14,19 @@ async fn handle_hello_world(request: Request<Body>) -> Result<Response<Body>, In
         },
         (&Method::POST, "/echo") => {
             *response.body_mut() = request.into_body();
+        },
+        (&Method::POST, "/echo/uppercase") => {
+            // future stream, make each byte uppercase
+            let mapping = request
+                .into_body()
+                .map_ok(|chunk| {
+                    chunk.iter()
+                        .map(|byte| byte.to_ascii_uppercase())
+                        .collect::<Vec<u8>>()
+                });
+            
+            // set the response body
+            *response.body_mut() = Body::wrap_stream(mapping);
         },
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
