@@ -1,13 +1,13 @@
-use crate::{config::Config, input::Input};
+use crate::{config::Config, input::Input, QmHashBytes};
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
 pub struct Invocation<F: RichField + Extendable<D>, const D: usize> {
-    function_hash: [F; 4],
+    function_hash: QmHashBytes,
     inputs: Vec<Input<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Invocation<F, D> {
-    pub fn new(function_hash: [F; 4], inputs: Vec<Input<F, D>>) -> Self {
+    pub fn new(function_hash: QmHashBytes, inputs: Vec<Input<F, D>>) -> Self {
         Self {
             function_hash,
             inputs,

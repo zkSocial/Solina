@@ -1,19 +1,24 @@
+use crate::QmHashBytes;
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
 pub enum Effect {
+    PureEffect,
+    ImpureEffect,
     Error,
-    FutureEffect,
-    ContinueExecutation,
 }
 
-pub struct ExecuteResult<F: RichField + Extendable<D>, const D: usize> {
-    invocation_hash: [F; 4],
-    pure_output_hash: [F; 4],
+pub struct ExecuteResult {
+    invocation_hash: QmHashBytes,
+    pure_output_hash: QmHashBytes,
     effects: Vec<Effect>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> ExecuteResult<F, D> {
-    pub fn new(invocation_hash: [F; 4], pure_output_hash: [F; 4], effects: Vec<Effect>) -> Self {
+impl ExecuteResult {
+    pub fn new(
+        invocation_hash: QmHashBytes,
+        pure_output_hash: QmHashBytes,
+        effects: Vec<Effect>,
+    ) -> Self {
         Self {
             invocation_hash,
             pure_output_hash,
@@ -22,19 +27,19 @@ impl<F: RichField + Extendable<D>, const D: usize> ExecuteResult<F, D> {
     }
 }
 
-pub struct Session<F: RichField + Extendable<D>, const D: usize> {
-    job_hash: [F; 4],
-    result: ExecuteResult<F, D>,
-    trace_hash: [F; 4],
-    error_hash: Option<[F; 4]>,
+pub struct Session {
+    job_hash: QmHashBytes,
+    result: ExecuteResult,
+    trace_hash: QmHashBytes,
+    error_hash: Option<QmHashBytes>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> Session<F, D> {
+impl Session {
     pub fn new(
-        job_hash: [F; 4],
-        result: ExecuteResult<F, D>,
-        trace_hash: [F; 4],
-        error_hash: Option<[F; 4]>,
+        job_hash: QmHashBytes,
+        result: ExecuteResult,
+        trace_hash: QmHashBytes,
+        error_hash: Option<QmHashBytes>,
     ) -> Self {
         Self {
             job_hash,
