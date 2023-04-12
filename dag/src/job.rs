@@ -25,22 +25,3 @@ impl<F: RichField + Extendable<D>, const D: usize> Job<F, D> {
         Self { invocation, config }
     }
 }
-
-pub enum Effect {
-    Error,
-    FutureEffect,
-    ContinueExecutation,
-}
-
-pub struct ExecuteResult<F: RichField + Extendable<D>, const D: usize> {
-    invocation_hash: [F; 4],
-    pure_output_hash: [F; 4],
-    effects: Vec<Effect>,
-}
-
-pub struct Session<F: RichField + Extendable<D>, const D: usize> {
-    job_hash: [F; 4],
-    result: ExecuteResult<F, D>,
-    trace_hash: [F; 4],
-    error_hash: Option<[F; 4]>,
-}
