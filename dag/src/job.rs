@@ -1,49 +1,46 @@
-use std::marker::PhantomData;
+use crate::{config::Config, input::Input};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
-use crate::config::Config;
-use libipld::{
-    cbor::DagCborCodec,
-    prelude::{Decode, Encode},
-    IpldCodec,
-};
-
-/// Fixed hash length
-pub type FixedHash = [u8; 32]; // TODO: should we use bytes or F elements (for Poseidon hash)?
-
-#[derive(Clone, Debug)]
-pub struct Input<T> {
-    value: T,
+pub struct Invocation<F: RichField + Extendable<D>, const D: usize> {
+    function_hash: [F; 4],
+    inputs: Vec<Input<F, D>>,
 }
 
-impl<T: Encode<IpldCodec> + 'static> Encode<IpldCodec> for Input<T> {
-    fn encode<W: std::io::Write>(&self, c: IpldCodec, w: &mut W) -> libipld::Result<()> {
-        T::encode(&self.value, c, w)
-    }
-}
-
-impl<T: Decode<IpldCodec> + 'static> Decode<IpldCodec> for Input<T> {
-    fn decode<R: std::io::Read + std::io::Seek>(c: IpldCodec, r: &mut R) -> libipld::Result<Self> {
-        let value = T::decode(c, r)?;
-        Ok(Self { value })
-    }
-}
-
-pub struct Invocation<T> {
-    function: FixedHash,
-    // TODO: we need to have dynamic dispatch over encoded data s
-    inputs: Vec<T>,
-}
-
-impl<T> Invocation<T> {
-    fn get_inputs(function_hash: FixedHash, inputs: Vec<T>) -> Self {
+impl<F: RichField + Extendable<D>, const D: usize> Invocation<F, D> {
+    pub fn new(function_hash: [F; 4], inputs: Vec<Input<F, D>>) -> Self {
         Self {
-            function: function_hash,
+            function_hash,
             inputs,
         }
     }
 }
 
-pub struct Job<T> {
-    invocation: Invocation<T>,
+pub struct Job<F: RichField + Extendable<D>, const D: usize> {
+    invocation: Invocation<F, D>,
     config: Config,
+}
+
+impl<F: RichField + Extendable<D>, const D: usize> Job<F, D> {
+    pub fn new(invocation: Invocation<F, D>, config: Config) -> Self {
+        Self { invocation, config }
+    }
+}
+
+pub enum Effect {
+    Error,
+    FutureEffect,
+    ContinueExecutation,
+}
+
+pub struct ExecuteResult<F: RichField + Extendable<D>, const D: usize> {
+    invocation_hash: [F; 4],
+    pure_output_hash: [F; 4],
+    effects: Vec<Effect>,
+}
+
+pub struct Session<F: RichField + Extendable<D>, const D: usize> {
+    job_hash: [F; 4],
+    result: ExecuteResult<F, D>,
+    trace_hash: [F; 4],
+    error_hash: Option<[F; 4]>,
 }
