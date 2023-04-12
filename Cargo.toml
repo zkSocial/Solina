@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "accumulator",
     "bin/server",
     "dag",
 ]

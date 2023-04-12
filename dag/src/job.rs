@@ -2,5 +2,5 @@
 
 pub struct Job {
     invocation: Invocation,
-    inputs: Vec<Inputs>,
+    inputs: Vec<Input>,
 }
