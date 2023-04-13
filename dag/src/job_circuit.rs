@@ -5,6 +5,11 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
+/// 1. Simple accumulator is generic (wrapping around the Merkle Tree);
+/// 2. Job is a trait (subfolder in which we add demo use cases);
+/// 3. Accumulator has one circuit, if we naively recurse with the verifier of the previous circuit
+///    we enforce that the function being used is always the same.
+
 /// Generates circuit for proving a job:
 /// 1. Generates [`BoolTarget`]'s for function hash;
 /// 2. Generates [`BoolTarget`]'s for function signature;
@@ -29,7 +34,4 @@ pub(crate) fn build_job_circuit<F: RichField + Extendable<D>, const D: usize>(
     for _ in 0..32 * 8 {
         input_hashes.push(circuit_builder.add_virtual_bool_target_safe());
     }
-    circuit_builder.hash_n_to_hash_no_pad::<KeccakHash<32>>(
-        input_hashes.iter().map(|b| b.target).collect::<Vec<_>>(),
-    );
 }
