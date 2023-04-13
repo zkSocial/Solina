@@ -2,8 +2,8 @@ use crate::{config::Config, input::Input, QmHashBytes};
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
 pub struct Invocation<F: RichField + Extendable<D>, const D: usize> {
-    function_hash: QmHashBytes,
-    inputs: Vec<Input<F, D>>,
+    pub(crate) function_hash: QmHashBytes,
+    pub(crate) inputs: Vec<Input<F, D>>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Invocation<F, D> {
@@ -16,8 +16,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Invocation<F, D> {
 }
 
 pub struct Job<F: RichField + Extendable<D>, const D: usize> {
-    invocation: Invocation<F, D>,
-    config: Config,
+    pub(crate) invocation: Invocation<F, D>,
+    pub(crate) config: Config,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Job<F, D> {

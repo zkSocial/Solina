@@ -9,7 +9,7 @@ use crate::U64_BYTES_LEN;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Input<F: RichField + Extendable<D>, const D: usize> {
-    field_values: Vec<F>,
+    pub(crate) field_values: Vec<F>,
 }
 
 impl<F: RichField + Extendable<D>, const D: usize> Input<F, D> {
