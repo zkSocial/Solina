@@ -37,9 +37,10 @@ impl<F: RichField + Extendable<D>, const D: usize> MerkleTreeGeneration<F, D>
             tree_hash_targets.push(hash_target);
         }
         let mut current_tree_height_index = 0;
+        let mut i = 0;
         for height in 0..merkle_tree_height {
             // TODO: do we want to loop over all the height, or until cap(1) ?
-            for i in 0..(1 << merkle_tree_height - height) {
+            while i < current_tree_height_index + (1 << (merkle_tree_height - height)) {
                 let hash_targets = self.hash_n_to_hash_no_pad::<Self::Hasher>(
                     [
                         tree_hash_targets[i as usize].elements.clone(),
@@ -48,8 +49,9 @@ impl<F: RichField + Extendable<D>, const D: usize> MerkleTreeGeneration<F, D>
                     .concat(),
                 );
                 tree_hash_targets.push(hash_targets);
+                i += 2;
             }
-            current_tree_height_index += 1 << height;
+            current_tree_height_index += 1 << (merkle_tree_height - height);
         }
         *tree_hash_targets.last().unwrap()
     }
