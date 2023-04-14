@@ -1,4 +1,5 @@
 #![no_main]
+use anyhow::{anyhow, Result};
 use risc0_zkvm::guest::env;
 
 risc0_zkvm::guest::entry!(main);
@@ -15,12 +16,17 @@ struct Outputs {
 }
 
 pub fn main() {
+    let result = fibonacci().unwrap_or_else(|e| e.to_string());
+    env::commit(&result);
+}
+
+fn fibonacci() -> Result<String> {
     let data: String = env::read();
-    let inputs: Inputs = serde_json::from_str(&data).expect("should be deserializable");
+    let inputs: Inputs = serde_json::from_str(&data)?;
     let n: u32 = inputs.n;
     let mut sum: u64 = 0;
     if n == 0 {
-        panic!("invalid argument");
+        return Err(anyhow!("invalid argument"));
     } else if n == 1 {
         sum = 1;
     } else {
@@ -32,6 +38,5 @@ pub fn main() {
             curr = sum;
         }
     }
-    let result = serde_json::to_string(&Outputs { n, sum }).expect("should be serializable");
-    env::commit(&result);
+    Ok(serde_json::to_string(&Outputs { n, sum })?)
 }
