@@ -1,5 +1,5 @@
 [package]
-name = "dag"
+name = "circuit-tree-generation"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
-libipld = "0.16.0"
 plonky2 = "0.1.3"

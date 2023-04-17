@@ -4,5 +4,6 @@ members = [
     "accumulator",
     "bin/server",
     "dag",
+    "circuit-tree-generation",
 ]
     
