@@ -30,10 +30,10 @@ fn fibonacci() -> Result<String> {
     } else if n == 1 {
         sum = 1;
     } else {
-        let mut last = 0;
-        let mut curr = 1;
+        let mut last: u64 = 0;
+        let mut curr: u64 = 1;
         for _ in 1..n {
-            sum = last + curr;
+            sum = last.checked_add(curr).ok_or(anyhow!("overflow"))?;
             last = curr;
             curr = sum;
         }
