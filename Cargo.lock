@@ -132,6 +132,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "circuit-tree-generation"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "plonky2",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
