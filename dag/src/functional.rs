@@ -1,8 +1,7 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::witness::PartialWitness,
-    plonk::{circuit_builder::CircuitBuilder, config::GenericConfig},
+    plonk::config::GenericConfig,
 };
 
 use crate::DAGGates;

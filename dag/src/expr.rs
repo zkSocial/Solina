@@ -7,7 +7,9 @@ use plonky2::{
     },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{VerifierCircuitData, VerifierCircuitTarget},
+        circuit_data::{
+            CommonCircuitData, VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
+        },
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -15,6 +17,8 @@ use plonky2::{
 
 pub trait CompileExpr<F: Field + RichField + Extendable<D>, const D: usize> {
     type Targets;
+    type Inner;
+    fn evaluate(self) -> Self::Inner;
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -29,6 +33,10 @@ pub struct FieldExpr<F: Field> {
 
 impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for FieldExpr<F> {
     type Targets = Target;
+    type Inner = F;
+    fn evaluate(self) -> Self::Inner {
+        self.element
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -49,6 +57,10 @@ impl<F: Field + RichField + Extendable<D>, const N: usize, const D: usize> Compi
     for ArrExpr<F, N>
 {
     type Targets = [Target; N];
+    type Inner = [F; N];
+    fn evaluate(self) -> Self::Inner {
+        self.expr
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -67,6 +79,10 @@ pub struct HashExpr<F: Field> {
 
 impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for HashExpr<F> {
     type Targets = HashOutTarget;
+    type Inner = HashOut<F>;
+    fn evaluate(self) -> Self::Inner {
+        self.hash
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -85,6 +101,10 @@ pub struct MultiHashExpr<F: Field> {
 
 impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for MultiHashExpr<F> {
     type Targets = Vec<HashOutTarget>;
+    type Inner = Vec<HashOut<F>>;
+    fn evaluate(self) -> Self::Inner {
+        self.hashes.clone()
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -106,6 +126,10 @@ pub struct BoolExpr {
 
 impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for BoolExpr {
     type Targets = BoolTarget;
+    type Inner = bool;
+    fn evaluate(self) -> Self::Inner {
+        self.b
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -126,6 +150,10 @@ impl<F: Field + RichField + Extendable<D>, const D: usize, const N: usize> Compi
     for BoolArrExpr<N>
 {
     type Targets = [BoolTarget; N];
+    type Inner = [bool; N];
+    fn evaluate(self) -> Self::Inner {
+        self.b_arr
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -151,7 +179,10 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     type Targets = (ProofWithPublicInputsTarget<D>, VerifierCircuitTarget);
-
+    type Inner = (CommonCircuitData<F, D>, VerifierOnlyCircuitData<C, D>);
+    fn evaluate(self) -> Self::Inner {
+        (self.verify_data.common, self.verify_data.verifier_only)
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
@@ -248,6 +279,21 @@ pub enum ExprTargets<const N: usize, const D: usize> {
     ProofDataTargets((ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)),
 }
 
+pub enum ExprValue<
+    F: Field + RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const N: usize,
+    const D: usize,
+> {
+    Field(F),
+    Arr([F; N]),
+    HashTarget(HashOut<F>),
+    MultiHash(Vec<HashOut<F>>),
+    Bool(bool),
+    BoolArr([bool; N]),
+    ProofData((CommonCircuitData<F, D>, VerifierOnlyCircuitData<C, D>)),
+}
+
 impl<F, C, const D: usize, const N: usize> CompileExpr<F, D> for Expr<F, C, N, D>
 where
     F: Field + RichField + Extendable<D>,
@@ -255,6 +301,20 @@ where
     C::Hasher: AlgebraicHasher<F>,
 {
     type Targets = ExprTargets<N, D>;
+    type Inner = ExprValue<F, C, N, D>;
+    fn evaluate(self) -> Self::Inner {
+        match self {
+            Expr::FieldExpr(f) => ExprValue::Field(f.element),
+            Expr::ArrExpr(a) => ExprValue::Arr(a.expr),
+            Expr::HashExpr(h) => ExprValue::HashTarget(h.hash),
+            Expr::MultiHashExpr(h) => ExprValue::MultiHash(h.hashes.clone()),
+            Expr::BoolExpr(b) => ExprValue::Bool(b.b),
+            Expr::BoolArrExpr(b) => ExprValue::BoolArr(b.b_arr),
+            Expr::ProofData(p) => {
+                ExprValue::ProofData((p.verify_data.common, p.verify_data.verifier_only))
+            }
+        }
+    }
     fn compile(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
