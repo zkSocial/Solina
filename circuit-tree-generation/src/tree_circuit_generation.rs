@@ -3,10 +3,7 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
     iop::target::Target,
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        config::{AlgebraicHasher, Hasher},
-    },
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 
 pub(crate) fn add_merkle_root_target<

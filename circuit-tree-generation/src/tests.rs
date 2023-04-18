@@ -1,11 +1,11 @@
+#[cfg(test)]
 use crate::Provable;
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
     hash::{hash_types::RichField, merkle_proofs, merkle_tree::MerkleTree, poseidon::PoseidonHash},
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
-        circuit_builder::{self, CircuitBuilder},
-        circuit_data::CircuitConfig,
+        circuit_builder::CircuitBuilder, circuit_data::CircuitConfig,
         config::PoseidonGoldilocksConfig,
     },
 };
@@ -45,25 +45,19 @@ fn tree_generation() {
 
     let merkle_tree_leaves = vec![vec![f_zero], vec![f_one], vec![f_two], vec![f_three]];
     let merkle_tree = MerkleTree::<F, H>::new(merkle_tree_leaves.clone(), 0);
-    let merkle_tree_root = <MerkleTree<F, PoseidonHash> as Provable<F, D>>::evaluate(&merkle_tree);
 
     let mut merkle_tree_leaf_targets = Vec::with_capacity(4);
     (0..4).for_each(|_| merkle_tree_leaf_targets.push(vec![circuit_builder.add_virtual_target()]));
-    let (merkle_targets, merkle_root_target) = merkle_tree.compile(&mut circuit_builder);
-
-    let should_be_root_hash_target = circuit_builder.add_virtual_hash();
-    for i in 0..4 {
-        circuit_builder.connect(
-            merkle_root_target.elements[i],
-            should_be_root_hash_target.elements[i],
-        );
-    }
+    let (merkle_targets, merkle_root_hash_target) = merkle_tree.compile(&mut circuit_builder);
 
     let mut partial_witness = PartialWitness::<F>::new();
-    <MerkleTree<F, H> as Provable<F, D>>::fill(&merkle_tree, &mut partial_witness, merkle_targets)
-        .unwrap();
-
-    partial_witness.set_hash_target(should_be_root_hash_target, merkle_tree_root);
+    <MerkleTree<F, H> as Provable<F, D>>::fill(
+        &merkle_tree,
+        &mut partial_witness,
+        merkle_targets,
+        merkle_root_hash_target,
+    )
+    .unwrap();
 
     let circuit_data = circuit_builder.build::<C>();
     let proof_with_pis = circuit_data.prove(partial_witness).unwrap();
@@ -91,25 +85,19 @@ fn tree_generation_2() {
     ];
     let merkle_tree_leaves = extend_to_power_of_two::<F, D>(merkle_tree_leaves, F::ZERO);
     let merkle_tree = MerkleTree::<F, H>::new(merkle_tree_leaves.clone(), 0);
-    let merkle_tree_root = <MerkleTree<F, PoseidonHash> as Provable<F, D>>::evaluate(&merkle_tree);
 
     let mut merkle_tree_leaf_targets = Vec::with_capacity(5);
     (0..5).for_each(|_| merkle_tree_leaf_targets.push(vec![circuit_builder.add_virtual_target()]));
-    let (merkle_targets, merkle_root_target) = merkle_tree.compile(&mut circuit_builder);
-
-    let should_be_root_hash_target = circuit_builder.add_virtual_hash();
-    for i in 0..4 {
-        circuit_builder.connect(
-            merkle_root_target.elements[i],
-            should_be_root_hash_target.elements[i],
-        );
-    }
+    let (merkle_targets, merkle_root_hash_target) = merkle_tree.compile(&mut circuit_builder);
 
     let mut partial_witness = PartialWitness::<F>::new();
-    <MerkleTree<F, H> as Provable<F, D>>::fill(&merkle_tree, &mut partial_witness, merkle_targets)
-        .unwrap();
-
-    partial_witness.set_hash_target(should_be_root_hash_target, merkle_tree_root);
+    <MerkleTree<F, H> as Provable<F, D>>::fill(
+        &merkle_tree,
+        &mut partial_witness,
+        merkle_targets,
+        merkle_root_hash_target,
+    )
+    .unwrap();
 
     let circuit_data = circuit_builder.build::<C>();
     let proof_with_pis = circuit_data.prove(partial_witness).unwrap();

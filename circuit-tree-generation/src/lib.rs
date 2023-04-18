@@ -7,15 +7,12 @@ use plonky2::{
         target::Target,
         witness::{PartialWitness, WitnessWrite},
     },
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        config::{AlgebraicHasher, GenericHashOut, Hasher},
-    },
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use tree_generation::add_merkle_root_target;
+use tree_circuit_generation::add_merkle_root_target;
 
 pub mod tests;
-pub mod tree_generation;
+pub mod tree_circuit_generation;
 pub mod utils;
 
 pub trait Provable<F: RichField + Extendable<D>, const D: usize> {
@@ -32,15 +29,17 @@ pub trait Provable<F: RichField + Extendable<D>, const D: usize> {
         &self,
         partial_witness: &mut PartialWitness<F>,
         targets: Self::Targets,
+        out_targets: Self::OutTargets,
     ) -> Result<(), anyhow::Error>;
     fn compile_and_fill(
         &self,
         circuit_builder: &mut CircuitBuilder<F, D>,
         partial_witness: &mut PartialWitness<F>,
         targets: Self::Targets,
+        out_targets: Self::OutTargets,
     ) -> Result<(), anyhow::Error> {
         self.compile(circuit_builder);
-        self.fill(partial_witness, targets)
+        self.fill(partial_witness, targets, out_targets)
     }
 }
 
@@ -78,6 +77,7 @@ impl<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>> Provab
         &self,
         partial_witness: &mut PartialWitness<F>,
         targets: Self::Targets,
+        out_targets: Self::OutTargets,
     ) -> Result<(), anyhow::Error> {
         if targets.len() != self.leaves.len() {
             return Err(anyhow!("Invalid target lenghts"));
@@ -97,6 +97,10 @@ impl<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>> Provab
                 }
             })
             .collect::<Result<(), _>>()?;
+        if self.cap.len() != 1 {
+            return Err(anyhow!("Invalid cap, for now cap == 0"));
+        }
+        partial_witness.set_hash_target(out_targets, self.cap.0[0]);
         Ok(())
     }
 }

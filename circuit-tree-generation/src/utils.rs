@@ -1,11 +1,6 @@
 use plonky2::{
-    field::extension::Extendable,
-    hash::{
-        hash_types::{HashOut, RichField},
-        poseidon::PoseidonHash,
-    },
-    iop::target::Target,
-    plonk::{circuit_builder::CircuitBuilder, config::Hasher},
+    field::extension::Extendable, hash::hash_types::RichField, iop::target::Target,
+    plonk::circuit_builder::CircuitBuilder,
 };
 
 /// Extends a given vector of `Target`s of a certain length len
@@ -34,12 +29,19 @@ pub fn extend_targets_to_power_of_two<F: RichField + Extendable<D>, const D: usi
 
 #[cfg(test)]
 pub(crate) mod tests {
-
-    use super::*;
     use crate::tests::extend_to_power_of_two;
     use plonky2::{
         field::{goldilocks_field::GoldilocksField, types::Field},
         hash::merkle_tree::MerkleTree,
+        plonk::config::Hasher,
+    };
+
+    use plonky2::{
+        field::extension::Extendable,
+        hash::{
+            hash_types::{HashOut, RichField},
+            poseidon::PoseidonHash,
+        },
     };
 
     type F = GoldilocksField;
