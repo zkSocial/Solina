@@ -14,9 +14,5 @@ where
     type InputGates;
     type OutputGates;
 
-    fn call_compile(
-        dag: &mut DAGGates<F, C, D, N>,
-        inputs: Self::InputGates,
-        outputs: Self::OutputGates,
-    );
+    fn call_compile(dag: &mut DAGGates<F, C, D, N>, inputs: Self::InputGates) -> Self::OutputGates;
 }

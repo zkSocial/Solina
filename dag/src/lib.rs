@@ -15,6 +15,7 @@ pub mod config;
 pub mod expr;
 pub mod functional;
 pub mod input;
+pub mod insert_balance;
 pub mod job;
 pub mod session;
 pub mod transfer;
