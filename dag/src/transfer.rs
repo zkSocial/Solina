@@ -8,7 +8,7 @@ use plonky2::{
 use crate::{
     expr::{ArrExpr, CompileExpr, Expr},
     functional::Functional,
-    DAGGates,
+    DAGState,
 };
 
 const N_TRANSFER: usize = 3;
@@ -29,15 +29,13 @@ where
     type InputGates = Vec<ArrExpr<F, N_TRANSFER>>;
     type OutputGates = Vec<TransferExpr<F>>;
     fn call_compile(
-        dag: &mut DAGGates<F, C, D, N_DAG>,
+        dag: &mut DAGState<F, C, D, N_DAG>,
         inputs: Self::InputGates,
     ) -> Self::OutputGates {
         let mut outputs = vec![];
         inputs.iter().for_each(|transfer_expr| {
-            let (transfer_data, transfer_data_targets) = (
-                transfer_expr.evaluate(),
-                transfer_expr.compile(&mut dag.circuit_builder, &mut dag.partial_witness),
-            );
+            let (transfer_data, transfer_data_targets) =
+                (transfer_expr.evaluate(), transfer_expr.targets());
             let from = transfer_data[0];
             let to = transfer_data[1];
 
@@ -70,7 +68,7 @@ where
 }
 
 fn transfer_circuit_logic<F, C, const D: usize>(
-    dag: &mut DAGGates<F, C, D, N_DAG>,
+    dag: &mut DAGState<F, C, D, N_DAG>,
     mut from_expr: ArrExpr<F, N_DAG>,
     mut to_expr: ArrExpr<F, N_DAG>,
     transfer_value: F,

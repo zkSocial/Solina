@@ -3,225 +3,345 @@ use plonky2::{
     hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::{
         target::{BoolTarget, Target},
-        witness::{PartialWitness, WitnessWrite},
+        witness::WitnessWrite,
     },
     plonk::{
-        circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CommonCircuitData, VerifierCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData,
-        },
+        circuit_data::{CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 
-pub trait CompileExpr<F: Field + RichField + Extendable<D>, const D: usize> {
+use crate::DAGState;
+
+pub trait CompileExpr<
+    F: Field + RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+    const D: usize,
+    const N: usize,
+> where
+    Self: Sized,
+{
     type Targets;
     type Inner;
     fn evaluate(&self) -> Self::Inner;
-    fn update(&mut self, new_val: Self::Inner);
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
-    ) -> Self::Targets;
+    fn initialize_compile(dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self;
+    fn update_compile(&mut self, dag: DAGState<F, C, D, N>, new_val: Self::Inner) -> Self::Targets;
+    fn targets(&self) -> Self::Targets;
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct FieldExpr<F: Field> {
     element: F,
+    target: Target,
 }
 
-impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for FieldExpr<F> {
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        const N: usize,
+    > CompileExpr<F, C, D, N> for FieldExpr<F>
+{
     type Targets = Target;
     type Inner = F;
     fn evaluate(&self) -> Self::Inner {
         self.element
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.element = new_val;
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let target = dag.circuit_builder.add_virtual_target();
+        dag.partial_witness.set_target(target, val);
+        let expr = Self {
+            element: val,
+            target,
+        };
+        expr
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
     ) -> Self::Targets {
-        let target = circuit_builder.add_virtual_target();
-        partial_witness.set_target(target, self.element);
+        let target = dag.circuit_builder.add_virtual_target();
+        dag.partial_witness.set_target(target, new_val);
+        self.element = new_val;
         target
     }
+    fn targets(&self) -> Self::Targets {
+        self.target
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ArrExpr<F: Field, const N: usize> {
     expr: [F; N],
+    targets: [Target; N],
 }
 
-impl<F: Field + RichField + Extendable<D>, const N: usize, const D: usize> CompileExpr<F, D>
-    for ArrExpr<F, N>
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const N: usize,
+        const D: usize,
+    > CompileExpr<F, C, D, N> for ArrExpr<F, N>
 {
     type Targets = [Target; N];
     type Inner = [F; N];
     fn evaluate(&self) -> Self::Inner {
         self.expr
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.expr = new_val;
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let targets = dag.circuit_builder.add_virtual_target_arr::<N>();
+        dag.partial_witness.set_target_arr(targets, val);
+        let expr = Self { expr: val, targets };
+        expr
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
     ) -> Self::Targets {
-        let targets = circuit_builder.add_virtual_target_arr::<N>();
-        partial_witness.set_target_arr(targets, self.expr);
+        let targets = dag.circuit_builder.add_virtual_target_arr::<N>();
+        dag.partial_witness.set_target_arr(targets, self.expr);
+        self.expr = new_val;
         targets
     }
+    fn targets(&self) -> Self::Targets {
+        self.targets
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct HashExpr<F: Field> {
     hash: HashOut<F>,
+    hash_out_target: HashOutTarget,
 }
 
-impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for HashExpr<F> {
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        const N: usize,
+    > CompileExpr<F, C, D, N> for HashExpr<F>
+{
     type Targets = HashOutTarget;
     type Inner = HashOut<F>;
     fn evaluate(&self) -> Self::Inner {
         self.hash
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.hash = new_val;
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let hash_out_target = dag.circuit_builder.add_virtual_hash();
+        dag.partial_witness.set_hash_target(hash_out_target, val);
+        let expr = Self {
+            hash: val,
+            hash_out_target,
+        };
+        expr
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
     ) -> Self::Targets {
-        let hash_targets = circuit_builder.add_virtual_hash();
-        partial_witness.set_hash_target(hash_targets, self.hash);
+        let hash_targets = dag.circuit_builder.add_virtual_hash();
+        dag.partial_witness.set_hash_target(hash_targets, self.hash);
+        self.hash = new_val;
         hash_targets
     }
+    fn targets(&self) -> Self::Targets {
+        self.hash_out_target
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct MultiHashExpr<F: Field> {
     hashes: Vec<HashOut<F>>,
+    hash_out_targets: Vec<HashOutTarget>,
 }
 
-impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for MultiHashExpr<F> {
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        const N: usize,
+    > CompileExpr<F, C, D, N> for MultiHashExpr<F>
+{
     type Targets = Vec<HashOutTarget>;
     type Inner = Vec<HashOut<F>>;
     fn evaluate(&self) -> Self::Inner {
         self.hashes.clone()
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.hashes = new_val;
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let hash_out_targets = dag.circuit_builder.add_virtual_hashes(val.len());
+        hash_out_targets
+            .iter()
+            .zip(&val)
+            .for_each(|(t, h)| dag.partial_witness.set_hash_target(*t, *h));
+        let expr = Self {
+            hashes: val,
+            hash_out_targets,
+        };
+        expr
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
     ) -> Self::Targets {
-        let hash_targets = circuit_builder.add_virtual_hashes(self.hashes.len());
+        let hash_targets = dag.circuit_builder.add_virtual_hashes(new_val.len());
         hash_targets
             .iter()
-            .zip(&self.hashes)
-            .for_each(|(t, h)| partial_witness.set_hash_target(*t, *h));
+            .zip(&new_val)
+            .for_each(|(t, h)| dag.partial_witness.set_hash_target(*t, *h));
+        self.hashes = new_val;
         hash_targets
+    }
+    fn targets(&self) -> Self::Targets {
+        self.hash_out_targets
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct BoolExpr {
     b: bool,
+    bool_target: BoolTarget,
 }
 
-impl<F: Field + RichField + Extendable<D>, const D: usize> CompileExpr<F, D> for BoolExpr {
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        const N: usize,
+    > CompileExpr<F, C, D, N> for BoolExpr
+{
     type Targets = BoolTarget;
     type Inner = bool;
     fn evaluate(&self) -> Self::Inner {
         self.b
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.b = new_val;
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let bool_target = dag.circuit_builder.add_virtual_bool_target_safe();
+        dag.partial_witness.set_bool_target(bool_target, val);
+        let expr = Self {
+            b: val,
+            bool_target,
+        };
+        expr
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
     ) -> Self::Targets {
-        let bool_target = circuit_builder.add_virtual_bool_target_safe();
-        partial_witness.set_bool_target(bool_target, self.b);
+        let bool_target = dag.circuit_builder.add_virtual_bool_target_safe();
+        dag.partial_witness.set_bool_target(bool_target, new_val);
+        self.b = new_val;
         bool_target
     }
+    fn targets(&self) -> Self::Targets {
+        self.bool_target
+    }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct BoolArrExpr<const N: usize> {
     b_arr: [bool; N],
+    bool_targets: [BoolTarget; N],
 }
 
-impl<F: Field + RichField + Extendable<D>, const D: usize, const N: usize> CompileExpr<F, D>
-    for BoolArrExpr<N>
+impl<
+        F: Field + RichField + Extendable<D>,
+        C: GenericConfig<D, F = F>,
+        const D: usize,
+        const N: usize,
+    > CompileExpr<F, C, D, N> for BoolArrExpr<N>
 {
     type Targets = [BoolTarget; N];
     type Inner = [bool; N];
     fn evaluate(&self) -> Self::Inner {
         self.b_arr
     }
-    fn update(&mut self, new_val: Self::Inner) {
-        self.b_arr = new_val;
-    }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
-    ) -> Self::Targets {
-        let bool_targets = [0; N].map(|_| circuit_builder.add_virtual_bool_target_safe());
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let bool_targets = [0; N].map(|_| dag.circuit_builder.add_virtual_bool_target_safe());
         [0; N]
             .into_iter()
-            .for_each(|i| partial_witness.set_bool_target(bool_targets[i], self.b_arr[i]));
+            .for_each(|i| dag.partial_witness.set_bool_target(bool_targets[i], val[i]));
+        let expr = Self {
+            b_arr: val,
+            bool_targets,
+        };
+        expr
+    }
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
+    ) -> Self::Targets {
+        let bool_targets = [0; N].map(|_| dag.circuit_builder.add_virtual_bool_target_safe());
+        [0; N].into_iter().for_each(|i| {
+            dag.partial_witness
+                .set_bool_target(bool_targets[i], new_val[i])
+        });
+        self.b_arr = new_val;
         bool_targets
+    }
+    fn targets(&self) -> Self::Targets {
+        self.bool_targets
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct ProofData<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
+#[derive(Clone)]
+pub struct ProofExpr<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> {
     proof_with_pis: ProofWithPublicInputs<F, C, D>,
     common_circuit_data: CommonCircuitData<F, D>,
     verifier_only_data: VerifierOnlyCircuitData<C, D>,
+    proof_with_pis_targets: ProofWithPublicInputsTarget<D>,
+    verify_target: VerifierCircuitTarget,
 }
 
-impl<F, C, const D: usize> CompileExpr<F, D> for ProofData<F, C, D>
+impl<F, C, const D: usize, const N: usize> CompileExpr<F, C, D, N> for ProofExpr<F, C, D>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
     type Targets = (ProofWithPublicInputsTarget<D>, VerifierCircuitTarget);
-    type Inner = (CommonCircuitData<F, D>, VerifierOnlyCircuitData<C, D>);
+    type Inner = (
+        ProofWithPublicInputs<F, C, D>,
+        CommonCircuitData<F, D>,
+        VerifierOnlyCircuitData<C, D>,
+    );
     fn evaluate(&self) -> Self::Inner {
         (
+            self.proof_with_pis.clone(),
             self.common_circuit_data.clone(),
             self.verifier_only_data.clone(),
         )
     }
-    fn update(&mut self, new_val: Self::Inner) {
+    fn update_compile(&mut self, dag: DAGState<F, C, D, N>, new_val: Self::Inner) -> Self::Targets {
         unimplemented!("Update is not implemented for recursive proofs");
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
-    ) -> Self::Targets {
-        let proof_with_pis_targets =
-            circuit_builder.add_virtual_proof_with_pis(&self.common_circuit_data);
-        partial_witness.set_proof_with_pis_target(&proof_with_pis_targets, &self.proof_with_pis);
-        let verify_target = circuit_builder
-            .add_virtual_verifier_data(self.common_circuit_data.config.fri_config.cap_height);
-        partial_witness.set_verifier_data_target(&verify_target, &self.verifier_only_data);
-        (proof_with_pis_targets, verify_target)
+    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let (proof_with_pis, common_circuit_data, verifier_only_data) = val;
+        let proof_with_pis_targets = dag.circuit_builder.add_virtual_proof_with_pis(&val.1);
+        dag.partial_witness
+            .set_proof_with_pis_target(&proof_with_pis_targets, &val.0);
+        let verify_target = dag
+            .circuit_builder
+            .add_virtual_verifier_data(common_circuit_data.config.fri_config.cap_height);
+        dag.partial_witness
+            .set_verifier_data_target(&verify_target, &verifier_only_data);
+        let expr = Self {
+            proof_with_pis,
+            common_circuit_data,
+            verifier_only_data,
+            proof_with_pis_targets,
+            verify_target,
+        };
+        expr
+    }
+    fn targets(&self) -> Self::Targets {
+        (self.proof_with_pis_targets, self.verify_target)
     }
 }
 
@@ -238,7 +358,7 @@ pub enum Expr<
     MultiHashExpr(MultiHashExpr<F>),
     BoolExpr(BoolExpr),
     BoolArrExpr(BoolArrExpr<N>),
-    ProofData(ProofData<F, C, D>),
+    ProofExpr(ProofExpr<F, C, D>),
 }
 
 pub enum ExprTargets<const N: usize, const D: usize> {
@@ -248,7 +368,7 @@ pub enum ExprTargets<const N: usize, const D: usize> {
     MultiHashTarget(Vec<HashOutTarget>),
     BoolTarget(BoolTarget),
     BoolArrTarget([BoolTarget; N]),
-    ProofDataTargets((ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)),
+    ProofExprTargets((ProofWithPublicInputsTarget<D>, VerifierCircuitTarget)),
 }
 
 pub enum ExprValue<
@@ -263,10 +383,16 @@ pub enum ExprValue<
     MultiHash(Vec<HashOut<F>>),
     Bool(bool),
     BoolArr([bool; N]),
-    ProofData((CommonCircuitData<F, D>, VerifierOnlyCircuitData<C, D>)),
+    ProofExpr(
+        (
+            ProofWithPublicInputs<F, C, D>,
+            CommonCircuitData<F, D>,
+            VerifierOnlyCircuitData<C, D>,
+        ),
+    ),
 }
 
-impl<F, C, const D: usize, const N: usize> CompileExpr<F, D> for Expr<F, C, N, D>
+impl<F, C, const D: usize, const N: usize> CompileExpr<F, C, D, N> for Expr<F, C, N, D>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -282,85 +408,190 @@ where
             Expr::MultiHashExpr(h) => ExprValue::MultiHash(h.hashes.clone()),
             Expr::BoolExpr(b) => ExprValue::Bool(b.b),
             Expr::BoolArrExpr(b) => ExprValue::BoolArr(b.b_arr),
-            Expr::ProofData(p) => {
-                ExprValue::ProofData((p.common_circuit_data.clone(), p.verifier_only_data.clone()))
+            Expr::ProofExpr(p) => ExprValue::ProofExpr((
+                p.proof_with_pis.clone(),
+                p.common_circuit_data.clone(),
+                p.verifier_only_data.clone(),
+            )),
+        }
+    }
+    fn initialize_compile(dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        match val {
+            ExprValue::Field(f) => {
+                let expr = FieldExpr::initialize_compile(dag, f);
+                Expr::FieldExpr(expr)
+            }
+            ExprValue::Arr(a) => {
+                let expr = ArrExpr::initialize_compile(dag, a);
+                Expr::ArrExpr(expr)
+            }
+            ExprValue::Hash(h) => {
+                let expr = HashExpr::initialize_compile(dag, h);
+                Expr::HashExpr(expr)
+            }
+            ExprValue::MultiHash(h) => {
+                let expr = MultiHashExpr::initialize_compile(dag, h);
+                Expr::MultiHashExpr(expr)
+            }
+            ExprValue::Bool(b) => {
+                let expr = BoolExpr::initialize_compile(dag, b);
+                Expr::BoolExpr(expr)
+            }
+            ExprValue::BoolArr(b) => {
+                let expr = BoolArrExpr::initialize_compile(dag, b);
+                Expr::BoolArrExpr(expr)
+            }
+            ExprValue::ProofExpr(p) => {
+                let expr = ProofExpr::initialize_compile(dag, p);
+                Expr::ProofExpr(expr)
             }
         }
     }
-    fn update(&mut self, new_val: Self::Inner) {
+    fn update_compile(
+        &mut self,
+        mut dag: DAGState<F, C, D, N>,
+        new_val: Self::Inner,
+    ) -> Self::Targets {
         match self {
             Expr::FieldExpr(f) => {
                 if let ExprValue::Field(other_f) = new_val {
-                    f.update(other_f);
+                    ExprTargets::FieldTarget(f.update_compile(dag, other_f))
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
             Expr::ArrExpr(a) => {
                 if let ExprValue::Arr(other_a) = new_val {
-                    a.update(other_a);
+                    ExprTargets::ArrTarget(a.update_compile(dag, other_a))
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
             Expr::HashExpr(h) => {
                 if let ExprValue::Hash(other_h) = new_val {
-                    h.update(other_h);
+                    ExprTargets::HashTarget(h.update_compile(dag, other_h))
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
             Expr::MultiHashExpr(h) => {
                 if let ExprValue::MultiHash(other_h) = new_val {
-                    h.update(other_h);
+                    ExprTargets::MultiHashTarget(h.update_compile(dag, other_h))
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
             Expr::BoolExpr(b) => {
                 if let ExprValue::Bool(other_b) = new_val {
-                    <BoolExpr as CompileExpr<F, D>>::update(b, other_b);
+                    ExprTargets::BoolTarget(<BoolExpr as CompileExpr<F, C, D, N>>::update_compile(
+                        b, dag, other_b,
+                    ))
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
             Expr::BoolArrExpr(b) => {
                 if let ExprValue::BoolArr(other_b) = new_val {
-                    <BoolArrExpr<N> as CompileExpr<F, D>>::update(b, other_b);
+                    ExprTargets::BoolArrTarget(
+                        <BoolArrExpr<N> as CompileExpr<F, C, D, N>>::update_compile(
+                            b, dag, other_b,
+                        ),
+                    )
                 } else {
                     panic!("Invalid value to be updated on");
                 }
             }
-            Expr::ProofData(..) => {
+            Expr::ProofExpr(..) => {
                 unimplemented!("Cannot update proof data")
             }
         }
     }
-    fn compile(
-        &self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        partial_witness: &mut PartialWitness<F>,
-    ) -> Self::Targets {
+    fn targets(&self) -> Self::Targets {
         match self {
-            Self::FieldExpr(f) => {
-                ExprTargets::FieldTarget(f.compile(circuit_builder, partial_witness))
+            Self::FieldExpr(i) => {
+                ExprTargets::FieldTarget(<FieldExpr<F> as CompileExpr<F, C, D, N>>::targets(i))
             }
-            Self::ArrExpr(a) => ExprTargets::ArrTarget(a.compile(circuit_builder, partial_witness)),
-            Self::HashExpr(h) => {
-                ExprTargets::HashTarget(h.compile(circuit_builder, partial_witness))
+            Self::ArrExpr(i) => {
+                ExprTargets::ArrTarget(<ArrExpr<F, N> as CompileExpr<F, C, D, N>>::targets(i))
             }
-            Self::MultiHashExpr(h) => {
-                ExprTargets::MultiHashTarget(h.compile(circuit_builder, partial_witness))
+            Self::HashExpr(i) => {
+                ExprTargets::HashTarget(<HashExpr<F> as CompileExpr<F, C, D, N>>::targets(i))
             }
-            Self::BoolExpr(b) => {
-                ExprTargets::BoolTarget(b.compile(circuit_builder, partial_witness))
+            Self::MultiHashExpr(i) => ExprTargets::MultiHashTarget(
+                <MultiHashExpr<F> as CompileExpr<F, C, D, N>>::targets(i),
+            ),
+            Self::BoolExpr(i) => {
+                ExprTargets::BoolTarget(<BoolExpr as CompileExpr<F, C, D, N>>::targets(i))
             }
-            Self::BoolArrExpr(b) => {
-                ExprTargets::BoolArrTarget(b.compile(circuit_builder, partial_witness))
+            Self::BoolArrExpr(i) => {
+                ExprTargets::BoolArrTarget(<BoolArrExpr<N> as CompileExpr<F, C, D, N>>::targets(i))
             }
-            Self::ProofData(p) => {
-                ExprTargets::ProofDataTargets(p.compile(circuit_builder, partial_witness))
-            }
+            Self::ProofExpr(i) => ExprTargets::ProofExprTargets(
+                <ProofExpr<F, C, D> as CompileExpr<F, C, D, N>>::targets(i),
+            ),
         }
     }
+}
+
+impl<F: Field> PartialEq for FieldExpr<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.element == other.element
+    }
+}
+
+impl<F: Field, const N: usize> PartialEq for ArrExpr<F, N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.expr == other.expr
+    }
+}
+
+impl PartialEq for BoolExpr {
+    fn eq(&self, other: &Self) -> bool {
+        self.b == other.b
+    }
+}
+
+impl<const N: usize> PartialEq for BoolArrExpr<N> {
+    fn eq(&self, other: &Self) -> bool {
+        self.b_arr == other.b_arr
+    }
+}
+
+impl<F: Field> PartialEq for HashExpr<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl<F: Field> PartialEq for MultiHashExpr<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.hashes == other.hashes
+    }
+}
+
+impl<F: Field + RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> PartialEq
+    for ProofExpr<F, C, D>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.proof_with_pis == other.proof_with_pis
+            && self.common_circuit_data == other.common_circuit_data
+            && self.verifier_only_data == other.verifier_only_data
+    }
+}
+
+impl<F: Field> Eq for FieldExpr<F> {}
+
+impl<F: Field, const N: usize> Eq for ArrExpr<F, N> {}
+
+impl Eq for BoolExpr {}
+
+impl<const N: usize> Eq for BoolArrExpr<N> {}
+
+impl<F: Field> Eq for HashExpr<F> {}
+
+impl<F: Field> Eq for MultiHashExpr<F> {}
+
+impl<F: Field + RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize> Eq
+    for ProofExpr<F, C, D>
+{
 }

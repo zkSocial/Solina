@@ -20,8 +20,9 @@ where
 {
     type InputGates = Vec<ArrExpr<F, N>>;
     type OutputGates = ();
-    fn call_compile(dag: &mut crate::DAGGates<F, C, D, N>, inputs: Self::InputGates) {
+    fn call_compile(dag: &mut crate::DAGState<F, C, D, N>, inputs: Self::InputGates) {
         inputs.iter().for_each(|i| {
+            ArrExpr::initialize_compile(dag, i);
             dag.gates.push(Expr::ArrExpr(i.clone()));
             let targets = i.compile(&mut dag.circuit_builder, &mut dag.partial_witness);
         });

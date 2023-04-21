@@ -4,7 +4,7 @@ use plonky2::{
     plonk::config::GenericConfig,
 };
 
-use crate::DAGGates;
+use crate::DAGState;
 
 pub trait Functional<F, C, const D: usize, const N: usize>
 where
@@ -14,5 +14,5 @@ where
     type InputGates;
     type OutputGates;
 
-    fn call_compile(dag: &mut DAGGates<F, C, D, N>, inputs: Self::InputGates) -> Self::OutputGates;
+    fn call_compile(dag: &mut DAGState<F, C, D, N>, inputs: Self::InputGates) -> Self::OutputGates;
 }

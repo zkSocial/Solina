@@ -1,12 +1,8 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::witness::{PartialWitness, WitnessWrite},
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        circuit_data::CircuitConfig,
-        config::{GenericConfig, PoseidonGoldilocksConfig},
-    },
+    iop::witness::PartialWitness,
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, config::GenericConfig},
 };
 
 use crate::expr::Expr;
@@ -19,6 +15,7 @@ pub mod insert_balance;
 pub mod job;
 pub mod session;
 pub mod transfer;
+mod util;
 
 pub(crate) const U64_BYTES_LEN: usize = 8;
 pub(crate) type QmHashBytes = [u8; 32];
@@ -34,7 +31,7 @@ where
     fn connect_input_output(&mut self);
 }
 
-pub struct DAGGates<F, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
+pub struct DAGState<F, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
 where
     F: Field + RichField + Extendable<D>,
 {
@@ -53,7 +50,7 @@ where
     Index(usize),
 }
 
-impl<F, C, const D: usize, const N: usize> DAGGates<F, C, D, N>
+impl<F, C, const D: usize, const N: usize> DAGState<F, C, D, N>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
@@ -89,7 +86,7 @@ where
     }
 }
 
-impl<F, C, const D: usize, const N: usize> Connector<F, C, D, N> for DAGGates<F, C, D, N>
+impl<F, C, const D: usize, const N: usize> Connector<F, C, D, N> for DAGState<F, C, D, N>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
