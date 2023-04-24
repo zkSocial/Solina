@@ -18,39 +18,56 @@ pub struct TransferExpr<F: Field> {
     from_expr: ArrExpr<F, N_DAG>,
     to_expr: ArrExpr<F, N_DAG>,
 }
-pub struct TransferFunc {}
+pub struct TransferFunc<F: Field> {
+    inputs: Vec<[F; N_TRANSFER]>,
+}
 
-impl<F, C, const D: usize> Functional<F, C, D, N_DAG> for TransferFunc
+impl<F, C, const D: usize> Functional<F, C, D, N_DAG> for TransferFunc<F>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
     C::Hasher: AlgebraicHasher<F>,
 {
-    type InputGates = Vec<ArrExpr<F, N_TRANSFER>>;
-    type OutputGates = Vec<TransferExpr<F>>;
-    fn call_compile(
-        dag: &mut DAGState<F, C, D, N_DAG>,
-        inputs: Self::InputGates,
-    ) -> Self::OutputGates {
+    type Inputs = Vec<[F; N_TRANSFER]>;
+    type Outputs = Vec<TransferExpr<F>>;
+
+    fn functional_inputs(&self) -> &Self::Inputs {
+        &self.inputs
+    }
+
+    fn call_compile(self, dag: &mut DAGState<F, C, D, N_DAG>) -> Self::Outputs {
+        let inputs = self.functional_inputs();
         let mut outputs = vec![];
-        inputs.iter().for_each(|transfer_expr| {
-            let (transfer_data, transfer_data_targets) =
-                (transfer_expr.evaluate(), transfer_expr.targets());
+        inputs.iter().for_each(|transfer_data| {
             let from = transfer_data[0];
             let to = transfer_data[1];
+            let balance = transfer_data[2];
 
-            let should_be_from_target = dag.circuit_builder.constant(from);
-            let should_be_to_target = dag.circuit_builder.constant(to);
+            let from_transfer_expr = ArrExpr::<F, N_DAG>::initialize_compile(dag, [from, balance]);
+            let to_transfer_expr = ArrExpr::<F, N_DAG>::initialize_compile(dag, [to, balance]);
+
+            let from_transfer_targets = from_transfer_expr.targets();
+            let to_transfer_targets = to_transfer_expr.targets();
+
+            let should_be_from_target = dag.to_fill_circuit.circuit_builder.constant(from);
+            let should_be_to_target = dag.to_fill_circuit.circuit_builder.constant(to);
 
             // enforce transfer account values on the inputs
-            dag.circuit_builder
-                .connect(should_be_from_target, transfer_data_targets[0]);
-            dag.circuit_builder
-                .connect(should_be_to_target, transfer_data_targets[1]);
+            dag.to_fill_circuit
+                .circuit_builder
+                .connect(should_be_from_target, from_transfer_targets[0]);
+            dag.to_fill_circuit
+                .circuit_builder
+                .connect(should_be_to_target, to_transfer_targets[0]);
+
+            // enforce from transfer value is equal to to transfer value
+            dag.to_fill_circuit
+                .circuit_builder
+                .connect(from_transfer_targets[1], to_transfer_targets[1]);
 
             // TODO: error catch instead of panic
-            let from_expr = get_account_data(&dag.gates, from);
-            let to_expr = get_account_data(&dag.gates, to);
+            let from_expr = get_account_data(&dag.values, from);
+            let to_expr = get_account_data(&dag.values, to);
 
             let transfer_expr = transfer_circuit_logic(
                 dag,

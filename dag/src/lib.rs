@@ -1,11 +1,17 @@
+use functional::Functional;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
     iop::witness::PartialWitness,
-    plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, config::GenericConfig},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CommonCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 
-use crate::expr::Expr;
+use crate::expr::{CompileExpr, Expr};
 
 pub mod config;
 pub mod expr;
@@ -15,29 +21,46 @@ pub mod insert_balance;
 pub mod job;
 pub mod session;
 pub mod transfer;
-mod util;
 
 pub(crate) const U64_BYTES_LEN: usize = 8;
 pub(crate) type QmHashBytes = [u8; 32];
+
+struct ProofData<F, C, const D: usize>
+where
+    F: RichField + Extendable<D>,
+    C: GenericConfig<D, F = F>,
+{
+    proof_with_pis: ProofWithPublicInputs<F, C, D>,
+    common: CommonCircuitData<F, D>,
+}
+
+struct FillCircuit<F: Field + RichField + Extendable<D>, const D: usize> {
+    circuit_builder: CircuitBuilder<F, D>,
+    partial_witness: PartialWitness<F>,
+}
 
 pub trait Connector<F, C, const D: usize, const N: usize>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    Self: Sized,
 {
-    type InputGates;
-    type OutputGates;
-
-    fn connect_input_output(&mut self);
+    fn execution_step(&self) -> usize;
+    fn get_previous_execution_proof(&self) -> Option<ProofData<F, C, D>>;
+    fn prove_nth_execution(
+        self,
+        functional: impl Functional<F, C, D, N>,
+    ) -> Result<Self, anyhow::Error>;
 }
 
 pub struct DAGState<F, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
 where
     F: Field + RichField + Extendable<D>,
 {
-    circuit_builder: CircuitBuilder<F, D>,
-    partial_witness: PartialWitness<F>,
-    gates: Vec<Expr<F, C, N, D>>,
+    values: Vec<Expr<F, C, N, D>>,
+    execution_step: usize,
+    previous_execution_step_proof: Option<ProofData<F, C, D>>,
+    to_fill_circuit: FillCircuit<F, D>,
 }
 
 pub enum DAGKey<'a, F, C, const D: usize, const N: usize>
@@ -54,35 +77,52 @@ impl<F, C, const D: usize, const N: usize> DAGState<F, C, D, N>
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new() -> Self {
-        let config = CircuitConfig::standard_recursion_config();
+    pub fn new(config: Option<CircuitConfig>) -> Self {
+        let execution_step = 0;
+        let previous_execution_step_proof = None;
+        // TODO: should we change to a different default config type ?
+        let config = config.unwrap_or(CircuitConfig::standard_recursion_config());
+
         let circuit_builder = CircuitBuilder::<F, D>::new(config);
         let partial_witness = PartialWitness::<F>::new();
         Self {
-            circuit_builder,
-            partial_witness,
-            gates: vec![],
+            execution_step,
+            previous_execution_step_proof,
+            to_fill_circuit: FillCircuit {
+                circuit_builder,
+                partial_witness,
+            },
+            values: vec![],
         }
     }
 
-    pub fn read_gate(&self, index: usize) -> DAGKey<F, C, D, N> {
-        if index >= self.gates.len() {
-            return DAGKey::DoesNotExist;
+    fn verify_previous_execution_proof(&mut self) {
+        let mut circuit_builder = self.to_fill_circuit.circuit_builder;
+        if let Some(ProofData { common, .. }) = self.previous_execution_step_proof {
+            let proof_with_pis_target = circuit_builder.add_virtual_proof_with_pis(&common);
+            let verifier_target =
+                circuit_builder.add_virtual_verifier_data(common.config.fri_config.cap_height);
+            let () = circuit_builder.verify_proof::<C>(
+                &proof_with_pis_target,
+                &verifier_target,
+                &common,
+            );
         }
-        let value = &self.gates[index];
-        DAGKey::Exist(value)
     }
 
-    pub fn add_gate(&mut self, value: Expr<F, C, N, D>) -> DAGKey<F, C, D, N> {
-        let index = if let Some(index) = self.gates.iter().position(|x| x == &value) {
-            self.gates[index] = value;
-            index
-        } else {
-            self.gates.push(value);
-            self.gates.len() - 1
-        };
-        DAGKey::Index(index)
+    fn build_circuit(&mut self) -> Result<ProofData<F, C, D>, anyhow::Error> {
+        let circuit_builder = self.to_fill_circuit.circuit_builder;
+        let partial_witness = self.to_fill_circuit.partial_witness;
+
+        let circuit_data = circuit_builder.build();
+        let proof_with_pis = circuit_data.prove(partial_witness)?;
+
+        Ok(ProofData {
+            proof_with_pis,
+            common: circuit_data.common,
+        })
     }
 }
 
@@ -90,9 +130,57 @@ impl<F, C, const D: usize, const N: usize> Connector<F, C, D, N> for DAGState<F,
 where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
+    C::Hasher: AlgebraicHasher<F>,
 {
-    type InputGates = Expr<F, C, N, D>;
-    type OutputGates = Expr<F, C, N, D>;
+    fn execution_step(&self) -> usize {
+        self.execution_step
+    }
+    fn get_previous_execution_proof(&self) -> Option<ProofData<F, C, D>> {
+        self.previous_execution_step_proof
+    }
+    fn prove_nth_execution(
+        self,
+        functional: impl Functional<F, C, D, N>,
+    ) -> Result<Self, anyhow::Error> {
+        let outputs = functional.call_compile(&mut self);
+        let circuit_builder = self.to_fill_circuit.circuit_builder;
+        // verifies previous execution step (recursively)
+        if let Some(ProofData {
+            proof_with_pis,
+            common,
+        }) = self.previous_execution_step_proof
+        {
+            self.verify_previous_execution_proof();
+        }
+        // new proof data, for the current execution step
+        let proof_data = self.build_circuit()?;
 
-    fn connect_input_output(&mut self) {}
+        // Start afresh circuit builder
+        let circuit_builder = CircuitBuilder::<F, D>::new(circuit_builder.config);
+        let partial_witness = PartialWitness::<F>::new();
+
+        let dag = Self {
+            execution_step: self.execution_step + 1,
+            values: vec![],
+            previous_execution_step_proof: Some(proof_data),
+            to_fill_circuit: FillCircuit {
+                circuit_builder,
+                partial_witness,
+            },
+        };
+
+        // add all necessary targets to the new dag circuit_builder
+        dag.values = self
+            .values
+            .iter()
+            .map(|e| {
+                <Expr<F, C, N, D> as CompileExpr<F, C, D, N>>::initialize_compile(
+                    &mut dag,
+                    e.evaluate(),
+                )
+            })
+            .collect();
+
+        Ok(dag)
+    }
 }

@@ -11,8 +11,9 @@ where
     F: Field + RichField + Extendable<D>,
     C: GenericConfig<D, F = F>,
 {
-    type InputGates;
-    type OutputGates;
+    type Inputs;
+    type Outputs;
 
-    fn call_compile(dag: &mut DAGState<F, C, D, N>, inputs: Self::InputGates) -> Self::OutputGates;
+    fn functional_inputs(&self) -> &Self::Inputs;
+    fn call_compile(self, dag: &mut DAGState<F, C, D, N>) -> Self::Outputs;
 }

@@ -25,8 +25,12 @@ pub trait CompileExpr<
     type Targets;
     type Inner;
     fn evaluate(&self) -> Self::Inner;
-    fn initialize_compile(dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self;
-    fn update_compile(&mut self, dag: DAGState<F, C, D, N>, new_val: Self::Inner) -> Self::Targets;
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self;
+    fn update_compile(
+        &mut self,
+        dag: &mut DAGState<F, C, D, N>,
+        new_val: Self::Inner,
+    ) -> Self::Targets;
     fn targets(&self) -> Self::Targets;
 }
 
@@ -48,9 +52,9 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.element
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let target = dag.circuit_builder.add_virtual_target();
-        dag.partial_witness.set_target(target, val);
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let target = dag.to_fill_circuit.circuit_builder.add_virtual_target();
+        dag.to_fill_circuit.partial_witness.set_target(target, val);
         let expr = Self {
             element: val,
             target,
@@ -59,11 +63,13 @@ impl<
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let target = dag.circuit_builder.add_virtual_target();
-        dag.partial_witness.set_target(target, new_val);
+        let target = dag.to_fill_circuit.circuit_builder.add_virtual_target();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_target(target, new_val);
         self.element = new_val;
         target
     }
@@ -90,19 +96,29 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.expr
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let targets = dag.circuit_builder.add_virtual_target_arr::<N>();
-        dag.partial_witness.set_target_arr(targets, val);
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let targets = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_target_arr::<N>();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_target_arr(targets, val);
         let expr = Self { expr: val, targets };
         expr
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let targets = dag.circuit_builder.add_virtual_target_arr::<N>();
-        dag.partial_witness.set_target_arr(targets, self.expr);
+        let targets = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_target_arr::<N>();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_target_arr(targets, self.expr);
         self.expr = new_val;
         targets
     }
@@ -129,9 +145,11 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.hash
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let hash_out_target = dag.circuit_builder.add_virtual_hash();
-        dag.partial_witness.set_hash_target(hash_out_target, val);
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let hash_out_target = dag.to_fill_circuit.circuit_builder.add_virtual_hash();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_hash_target(hash_out_target, val);
         let expr = Self {
             hash: val,
             hash_out_target,
@@ -140,11 +158,13 @@ impl<
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let hash_targets = dag.circuit_builder.add_virtual_hash();
-        dag.partial_witness.set_hash_target(hash_targets, self.hash);
+        let hash_targets = dag.to_fill_circuit.circuit_builder.add_virtual_hash();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_hash_target(hash_targets, self.hash);
         self.hash = new_val;
         hash_targets
     }
@@ -171,12 +191,15 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.hashes.clone()
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let hash_out_targets = dag.circuit_builder.add_virtual_hashes(val.len());
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let hash_out_targets = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_hashes(val.len());
         hash_out_targets
             .iter()
             .zip(&val)
-            .for_each(|(t, h)| dag.partial_witness.set_hash_target(*t, *h));
+            .for_each(|(t, h)| dag.to_fill_circuit.partial_witness.set_hash_target(*t, *h));
         let expr = Self {
             hashes: val,
             hash_out_targets,
@@ -185,14 +208,17 @@ impl<
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let hash_targets = dag.circuit_builder.add_virtual_hashes(new_val.len());
+        let hash_targets = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_hashes(new_val.len());
         hash_targets
             .iter()
             .zip(&new_val)
-            .for_each(|(t, h)| dag.partial_witness.set_hash_target(*t, *h));
+            .for_each(|(t, h)| dag.to_fill_circuit.partial_witness.set_hash_target(*t, *h));
         self.hashes = new_val;
         hash_targets
     }
@@ -219,9 +245,14 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.b
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let bool_target = dag.circuit_builder.add_virtual_bool_target_safe();
-        dag.partial_witness.set_bool_target(bool_target, val);
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let bool_target = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_bool_target_safe();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_bool_target(bool_target, val);
         let expr = Self {
             b: val,
             bool_target,
@@ -230,11 +261,16 @@ impl<
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let bool_target = dag.circuit_builder.add_virtual_bool_target_safe();
-        dag.partial_witness.set_bool_target(bool_target, new_val);
+        let bool_target = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_bool_target_safe();
+        dag.to_fill_circuit
+            .partial_witness
+            .set_bool_target(bool_target, new_val);
         self.b = new_val;
         bool_target
     }
@@ -261,11 +297,17 @@ impl<
     fn evaluate(&self) -> Self::Inner {
         self.b_arr
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
-        let bool_targets = [0; N].map(|_| dag.circuit_builder.add_virtual_bool_target_safe());
-        [0; N]
-            .into_iter()
-            .for_each(|i| dag.partial_witness.set_bool_target(bool_targets[i], val[i]));
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+        let bool_targets = [0; N].map(|_| {
+            dag.to_fill_circuit
+                .circuit_builder
+                .add_virtual_bool_target_safe()
+        });
+        [0; N].into_iter().for_each(|i| {
+            dag.to_fill_circuit
+                .partial_witness
+                .set_bool_target(bool_targets[i], val[i])
+        });
         let expr = Self {
             b_arr: val,
             bool_targets,
@@ -274,12 +316,17 @@ impl<
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
-        let bool_targets = [0; N].map(|_| dag.circuit_builder.add_virtual_bool_target_safe());
+        let bool_targets = [0; N].map(|_| {
+            dag.to_fill_circuit
+                .circuit_builder
+                .add_virtual_bool_target_safe()
+        });
         [0; N].into_iter().for_each(|i| {
-            dag.partial_witness
+            dag.to_fill_circuit
+                .partial_witness
                 .set_bool_target(bool_targets[i], new_val[i])
         });
         self.b_arr = new_val;
@@ -318,18 +365,28 @@ where
             self.verifier_only_data.clone(),
         )
     }
-    fn update_compile(&mut self, dag: DAGState<F, C, D, N>, new_val: Self::Inner) -> Self::Targets {
+    fn update_compile(
+        &mut self,
+        dag: &mut DAGState<F, C, D, N>,
+        new_val: Self::Inner,
+    ) -> Self::Targets {
         unimplemented!("Update is not implemented for recursive proofs");
     }
-    fn initialize_compile(mut dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
         let (proof_with_pis, common_circuit_data, verifier_only_data) = val;
-        let proof_with_pis_targets = dag.circuit_builder.add_virtual_proof_with_pis(&val.1);
-        dag.partial_witness
+        let proof_with_pis_targets = dag
+            .to_fill_circuit
+            .circuit_builder
+            .add_virtual_proof_with_pis(&val.1);
+        dag.to_fill_circuit
+            .partial_witness
             .set_proof_with_pis_target(&proof_with_pis_targets, &val.0);
         let verify_target = dag
+            .to_fill_circuit
             .circuit_builder
             .add_virtual_verifier_data(common_circuit_data.config.fri_config.cap_height);
-        dag.partial_witness
+        dag.to_fill_circuit
+            .partial_witness
             .set_verifier_data_target(&verify_target, &verifier_only_data);
         let expr = Self {
             proof_with_pis,
@@ -415,7 +472,7 @@ where
             )),
         }
     }
-    fn initialize_compile(dag: DAGState<F, C, D, N>, val: Self::Inner) -> Self {
+    fn initialize_compile(dag: &mut DAGState<F, C, D, N>, val: Self::Inner) -> Self {
         match val {
             ExprValue::Field(f) => {
                 let expr = FieldExpr::initialize_compile(dag, f);
@@ -449,7 +506,7 @@ where
     }
     fn update_compile(
         &mut self,
-        mut dag: DAGState<F, C, D, N>,
+        dag: &mut DAGState<F, C, D, N>,
         new_val: Self::Inner,
     ) -> Self::Targets {
         match self {
