@@ -14,6 +14,6 @@ where
     type Inputs;
     type Outputs;
 
-    fn functional_inputs(&self) -> &Self::Inputs;
+    fn functional_inputs(&self) -> Self::Inputs;
     fn call_compile(self, dag: &mut DAGState<F, C, D, N>) -> Self::Outputs;
 }

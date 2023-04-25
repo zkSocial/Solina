@@ -223,7 +223,7 @@ impl<
         hash_targets
     }
     fn targets(&self) -> Self::Targets {
-        self.hash_out_targets
+        self.hash_out_targets.clone()
     }
 }
 
@@ -367,8 +367,8 @@ where
     }
     fn update_compile(
         &mut self,
-        dag: &mut DAGState<F, C, D, N>,
-        new_val: Self::Inner,
+        _dag: &mut DAGState<F, C, D, N>,
+        _new_val: Self::Inner,
     ) -> Self::Targets {
         unimplemented!("Update is not implemented for recursive proofs");
     }
@@ -377,10 +377,10 @@ where
         let proof_with_pis_targets = dag
             .to_fill_circuit
             .circuit_builder
-            .add_virtual_proof_with_pis(&val.1);
+            .add_virtual_proof_with_pis(&common_circuit_data);
         dag.to_fill_circuit
             .partial_witness
-            .set_proof_with_pis_target(&proof_with_pis_targets, &val.0);
+            .set_proof_with_pis_target(&proof_with_pis_targets, &proof_with_pis);
         let verify_target = dag
             .to_fill_circuit
             .circuit_builder
@@ -398,7 +398,10 @@ where
         expr
     }
     fn targets(&self) -> Self::Targets {
-        (self.proof_with_pis_targets, self.verify_target)
+        (
+            self.proof_with_pis_targets.clone(),
+            self.verify_target.clone(),
+        )
     }
 }
 
