@@ -15,8 +15,8 @@ use crate::{
     Connector, DAGState,
 };
 
-struct MovingAverageFunc<F: Field> {
-    value: Option<F>,
+pub struct MovingAverageFunc<F: Field> {
+    pub value: Option<F>,
 }
 
 impl<F, C, const D: usize, const N: usize> Functional<F, C, D, N> for MovingAverageFunc<F>
@@ -81,7 +81,7 @@ pub struct MovingAverageDAGBuilder {}
 impl MovingAverageDAGBuilder {
     pub fn initialize_with_values<F, C, const D: usize, const N: usize>(
         values: Vec<F>,
-    ) -> DAGState<F, C, D, N>
+    ) -> (DAGState<F, C, D, N>, F)
     where
         F: Field + RichField + Extendable<D>,
         C: GenericConfig<D, F = F>,
@@ -111,10 +111,10 @@ impl MovingAverageDAGBuilder {
         dag.values = values;
 
         let moving_average_functional = MovingAverageFunc { value: None };
-        let dag = dag
-            .prove_nth_execution(moving_average_functional)
+        let (dag, output) = dag
+            .prove_nth_execution::<MovingAverageFunc<F>>(moving_average_functional)
             .expect("Proving execution at first step failed");
 
-        dag
+        (dag, output)
     }
 }

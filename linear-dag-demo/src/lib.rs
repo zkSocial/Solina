@@ -7,6 +7,7 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CommonCircuitData},
         config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
     },
 };
 
@@ -16,17 +17,16 @@ pub mod expr;
 pub mod functional;
 pub mod insert_balance;
 pub mod moving_average;
+mod tests;
 pub mod transfer;
 
-pub(crate) const U64_BYTES_LEN: usize = 8;
-pub(crate) type QmHashBytes = [u8; 32];
-
 #[derive(Clone)]
-struct ProofData<F, const D: usize>
+pub struct ProofData<F, C: GenericConfig<D, F = F>, const D: usize>
 where
     F: RichField + Extendable<D>,
 {
-    common: CommonCircuitData<F, D>,
+    pub proof_with_pis: ProofWithPublicInputs<F, C, D>,
+    pub common: CommonCircuitData<F, D>,
 }
 
 struct FillCircuit<F: Field + RichField + Extendable<D>, const D: usize> {
@@ -41,10 +41,10 @@ where
     Self: Sized,
 {
     fn execution_step(&self) -> usize;
-    fn prove_nth_execution(
+    fn prove_nth_execution<Func: Functional<F, C, D, N>>(
         self,
-        functional: impl Functional<F, C, D, N>,
-    ) -> Result<Self, anyhow::Error>;
+        functional: Func,
+    ) -> Result<(Self, Func::Outputs), anyhow::Error>;
 }
 
 pub struct DAGState<F, C: GenericConfig<D, F = F>, const D: usize, const N: usize>
@@ -53,7 +53,7 @@ where
 {
     values: Vec<Expr<F, C, N, D>>,
     execution_step: usize,
-    previous_execution_step_proof: Option<ProofData<F, D>>,
+    previous_execution_step_proof: Option<ProofData<F, C, D>>,
     to_fill_circuit: FillCircuit<F, D>,
 }
 
@@ -92,14 +92,19 @@ where
         }
     }
 
-    fn build_circuit(self) -> Result<ProofData<F, D>, anyhow::Error> {
+    pub fn previous_execution_step_proof(&self) -> Option<ProofData<F, C, D>> {
+        self.previous_execution_step_proof.clone()
+    }
+
+    fn build_circuit(self) -> Result<ProofData<F, C, D>, anyhow::Error> {
         let circuit_builder = self.to_fill_circuit.circuit_builder;
         let partial_witness = self.to_fill_circuit.partial_witness;
 
         let circuit_data = circuit_builder.build::<C>();
-        let _proof_with_pis = circuit_data.prove(partial_witness)?;
+        let proof_with_pis = circuit_data.prove(partial_witness)?;
 
         Ok(ProofData {
+            proof_with_pis,
             common: circuit_data.common,
         })
     }
@@ -114,11 +119,11 @@ where
     fn execution_step(&self) -> usize {
         self.execution_step
     }
-    fn prove_nth_execution(
+    fn prove_nth_execution<Func: Functional<F, C, D, N>>(
         mut self,
-        functional: impl Functional<F, C, D, N>,
-    ) -> Result<Self, anyhow::Error> {
-        let _outputs = functional.call_compile(&mut self);
+        functional: Func,
+    ) -> Result<(Self, Func::Outputs), anyhow::Error> {
+        let outputs = functional.call_compile(&mut self);
         let config = self.to_fill_circuit.circuit_builder.config.clone();
         // verifies previous execution step (recursively)
         if let Some(ProofData { ref common, .. }) = self.previous_execution_step_proof {
@@ -166,6 +171,6 @@ where
             })
             .collect();
 
-        Ok(dag)
+        Ok((dag, outputs))
     }
 }
