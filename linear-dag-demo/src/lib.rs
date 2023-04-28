@@ -2,10 +2,10 @@ use functional::Functional;
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::witness::PartialWitness,
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{CircuitConfig, CommonCircuitData},
+        circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
@@ -27,6 +27,7 @@ where
 {
     pub proof_with_pis: ProofWithPublicInputs<F, C, D>,
     pub common: CommonCircuitData<F, D>,
+    pub verifier_only: VerifierOnlyCircuitData<C, D>,
 }
 
 struct FillCircuit<F: Field + RichField + Extendable<D>, const D: usize> {
@@ -106,6 +107,7 @@ where
         Ok(ProofData {
             proof_with_pis,
             common: circuit_data.common,
+            verifier_only: circuit_data.verifier_only,
         })
     }
 }
@@ -125,8 +127,14 @@ where
     ) -> Result<(Self, Func::Outputs), anyhow::Error> {
         let outputs = functional.call_compile(&mut self);
         let config = self.to_fill_circuit.circuit_builder.config.clone();
+
         // verifies previous execution step (recursively)
-        if let Some(ProofData { ref common, .. }) = self.previous_execution_step_proof {
+        if let Some(ProofData {
+            ref common,
+            ref verifier_only,
+            ref proof_with_pis,
+        }) = self.previous_execution_step_proof
+        {
             let proof_with_pis_target = self
                 .to_fill_circuit
                 .circuit_builder
@@ -140,7 +148,14 @@ where
                 &verifier_target,
                 common,
             );
+            self.to_fill_circuit
+                .partial_witness
+                .set_proof_with_pis_target(&proof_with_pis_target, proof_with_pis);
+            self.to_fill_circuit
+                .partial_witness
+                .set_verifier_data_target(&verifier_target, verifier_only);
         }
+
         // new proof data, for the current execution step
         let execution_step = self.execution_step + 1;
         let previous_values = self.values.clone();

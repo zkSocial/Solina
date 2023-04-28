@@ -1,7 +1,7 @@
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::RichField,
-    iop::witness::PartialWitness,
+    iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::CircuitConfig,
@@ -66,11 +66,17 @@ where
             }
         }
 
+        println!("FLAG: sum  = {}", sum);
+        println!("FLAG: denominator = {}", F::from_canonical_usize(size));
         let moving_average = sum / F::from_canonical_usize(size);
-        let _moving_average_target = dag
+        let moving_average_target = dag
             .to_fill_circuit
             .circuit_builder
             .div(sum_target, size_target);
+
+        dag.to_fill_circuit
+            .partial_witness
+            .set_target(moving_average_target, moving_average);
 
         moving_average
     }
