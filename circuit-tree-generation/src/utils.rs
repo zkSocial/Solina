@@ -1,11 +1,6 @@
 use plonky2::{
-    field::extension::Extendable,
-    hash::{
-        hash_types::{HashOut, RichField},
-        poseidon::PoseidonHash,
-    },
-    iop::target::Target,
-    plonk::{circuit_builder::CircuitBuilder, config::Hasher},
+    field::extension::Extendable, hash::hash_types::RichField, iop::target::Target,
+    plonk::circuit_builder::CircuitBuilder,
 };
 
 /// Extends a given vector of `Target`s of a certain length len
@@ -32,67 +27,57 @@ pub fn extend_targets_to_power_of_two<F: RichField + Extendable<D>, const D: usi
     targets
 }
 
-pub(crate) fn extend_to_power_of_two<F: RichField + Extendable<D>, const D: usize>(
-    mut values: Vec<Vec<F>>,
-    to_extend_value: F,
-) -> Vec<Vec<F>> {
-    let log_2_len = values.len().ilog2();
-    if 2_u64.pow(log_2_len) == values.len() as u64 {
-        return values;
-    }
-    let diff = 2_u64.pow(log_2_len + 1) - values.len() as u64 - 1;
-
-    // append length of `values`
-    values.push(vec![F::from_canonical_u64(values.len() as u64)]);
-    // trivially extend the vector until we obtain a power 2 length output vector
-    let to_extend_values = vec![vec![to_extend_value]; diff as usize];
-    values.extend(to_extend_values);
-    values
-}
-
-fn merkle_root<F: RichField + Extendable<D>, const D: usize>(
-    leaves: Vec<Vec<F>>,
-) -> Vec<HashOut<F>> {
-    // extend `targets` to a length of power of two vector
-    let leaves = extend_to_power_of_two::<F, D>(leaves, F::ZERO);
-    // build the merkle tree root target
-    let merkle_tree_height = leaves.len().ilog2();
-    let mut tree_hash_leaves = vec![];
-    for i in 0..leaves.len() {
-        let hash = PoseidonHash::hash_or_noop(&leaves[i]);
-        tree_hash_leaves.push(hash);
-    }
-    let mut current_tree_height_index = 0;
-    let mut i = 0;
-    for height in 0..merkle_tree_height {
-        // TODO: do we want to loop over all the height, or until cap(1) ?
-        while i < current_tree_height_index + (1 << (merkle_tree_height - height)) {
-            let hash = PoseidonHash::hash_no_pad(
-                &[
-                    tree_hash_leaves[i as usize].elements.clone(),
-                    tree_hash_leaves[i as usize + 1].elements.clone(),
-                ]
-                .concat(),
-            );
-            tree_hash_leaves.push(hash);
-            i += 2;
-        }
-        current_tree_height_index += 1 << (merkle_tree_height - height);
-    }
-    tree_hash_leaves
-}
-
 #[cfg(test)]
-mod tests {
-
-    use super::*;
+pub(crate) mod tests {
+    use crate::tests::extend_to_power_of_two;
     use plonky2::{
         field::{goldilocks_field::GoldilocksField, types::Field},
         hash::merkle_tree::MerkleTree,
+        plonk::config::Hasher,
+    };
+
+    use plonky2::{
+        field::extension::Extendable,
+        hash::{
+            hash_types::{HashOut, RichField},
+            poseidon::PoseidonHash,
+        },
     };
 
     type F = GoldilocksField;
     const D: usize = 2;
+
+    fn merkle_root<F: RichField + Extendable<D>, const D: usize>(
+        leaves: Vec<Vec<F>>,
+    ) -> Vec<HashOut<F>> {
+        // extend `targets` to a length of power of two vector
+        let leaves = extend_to_power_of_two::<F, D>(leaves, F::ZERO);
+        // build the merkle tree root target
+        let merkle_tree_height = leaves.len().ilog2();
+        let mut tree_hash_leaves = vec![];
+        for i in 0..leaves.len() {
+            let hash = PoseidonHash::hash_or_noop(&leaves[i]);
+            tree_hash_leaves.push(hash);
+        }
+        let mut current_tree_height_index = 0;
+        let mut i = 0;
+        for height in 0..merkle_tree_height {
+            // TODO: do we want to loop over all the height, or until cap(1) ?
+            while i < current_tree_height_index + (1 << (merkle_tree_height - height)) {
+                let hash = PoseidonHash::hash_no_pad(
+                    &[
+                        tree_hash_leaves[i as usize].elements.clone(),
+                        tree_hash_leaves[i as usize + 1].elements.clone(),
+                    ]
+                    .concat(),
+                );
+                tree_hash_leaves.push(hash);
+                i += 2;
+            }
+            current_tree_height_index += 1 << (merkle_tree_height - height);
+        }
+        tree_hash_leaves
+    }
 
     #[test]
     fn test_merkle_root() {
