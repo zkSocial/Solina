@@ -1,10 +1,10 @@
 [workspace]
 
 members = [
-    "backbone",
     "bin/server",
     "circuit-tree-generation",
     "dag",
+    "intent",
     "segment",
 ]
     
