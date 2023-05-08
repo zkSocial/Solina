@@ -1,3 +1,1 @@
-pub struct TransferIntent {
-    
-}
+pub struct TransferIntent {}

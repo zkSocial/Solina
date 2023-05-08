@@ -1,3 +1,1 @@
-pub trait Intent {
-
-}
+pub trait Intent {}

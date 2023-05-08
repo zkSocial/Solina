@@ -1,9 +1,9 @@
-use hyper::{Body, Request, Response, Server};
+use futures::TryStreamExt as _;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{StatusCode, Method};
+use hyper::{Body, Request, Response, Server};
+use hyper::{Method, StatusCode};
 use serde_json::json;
 use std::convert::Infallible;
-use futures::TryStreamExt as _;
 
 async fn handle_hello_world(request: Request<Body>) -> Result<Response<Body>, Infallible> {
     let mut response = Response::new(Body::empty());
@@ -11,26 +11,25 @@ async fn handle_hello_world(request: Request<Body>) -> Result<Response<Body>, In
     match (request.method(), request.uri().path()) {
         (&Method::GET, "/") => {
             *response.body_mut() = Body::from("Try POSTing data to /echo");
-        },
+        }
         (&Method::POST, "/echo") => {
             *response.body_mut() = request.into_body();
-        },
+        }
         (&Method::POST, "/echo/uppercase") => {
             // future stream, make each byte uppercase
-            let mapping = request
-                .into_body()
-                .map_ok(|chunk| {
-                    chunk.iter()
-                        .map(|byte| byte.to_ascii_uppercase())
-                        .collect::<Vec<u8>>()
-                });
-            
+            let mapping = request.into_body().map_ok(|chunk| {
+                chunk
+                    .iter()
+                    .map(|byte| byte.to_ascii_uppercase())
+                    .collect::<Vec<u8>>()
+            });
+
             // set the response body
             *response.body_mut() = Body::wrap_stream(mapping);
-        },
+        }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
-        },
+        }
     };
 
     Ok(response)
@@ -52,8 +51,7 @@ async fn main() {
 
     println!("Server is running on http://127.0.0.1:3000");
 
-    let graceful_halt = 
-        server.with_graceful_shutdown(shutdown_signal());
+    let graceful_halt = server.with_graceful_shutdown(shutdown_signal());
 
     // run forever
     if let Err(e) = graceful_halt.await {
@@ -67,5 +65,3 @@ async fn shutdown_signal() {
         .await
         .expect("failed to install CTRL+C signal handler");
 }
-
-
