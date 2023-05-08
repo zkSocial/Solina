@@ -10,4 +10,6 @@ pub struct TransferIntent {
     amount: BigUintTarget,
     /// address
     token: BigUintTarget,
+    /// before as unix timestamp; this would fit in u32 till 2106
+    before: BigUintTarget,
 }
