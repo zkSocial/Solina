@@ -2,18 +2,30 @@ use crate::utils::hash_data;
 use sha3::{Digest, Sha3_256};
 
 pub(crate) const ENCODED_BYTES_LEN: usize = 66;
-pub(crate) const ENCODED_U32_LEN: usize = 3;
+pub(crate) const ENCODED_U32_LEN: usize = 17;
 pub(crate) const ENCODING_PREFIX: [u8; 2] = [0x19, 0x01];
 
 pub(crate) type DomainSeparator = [u8; 32];
 /// Structured hash little-endian bytes type.
-pub(crate) struct StructuredHashBytes(pub(crate) [u8; 66]);
+pub(crate) struct StructuredEncodedBytes(pub(crate) [u8; ENCODED_BYTES_LEN]);
+
+impl StructuredEncodedBytes {
+    pub(crate) fn to_array(self) -> [u8; ENCODED_BYTES_LEN] {
+        self.0
+    }
+}
 
 /// Structured hash, represented as u32 bytes array.
-pub(crate) struct StructuredHashU32(pub(crate) [u32; 17]);
+pub(crate) struct StructuredEncodedU32(pub(crate) [u32; 17]);
 
-impl From<StructuredHashU32> for StructuredHashBytes {
-    fn from(value: StructuredHashU32) -> Self {
+impl StructuredEncodedU32 {
+    pub(crate) fn to_array(self) -> [u32; ENCODED_U32_LEN] {
+        self.0
+    }
+}
+
+impl From<StructuredEncodedU32> for StructuredEncodedBytes {
+    fn from(value: StructuredEncodedU32) -> Self {
         let inner = value
             .0
             .iter()
@@ -25,8 +37,8 @@ impl From<StructuredHashU32> for StructuredHashBytes {
     }
 }
 
-impl From<StructuredHashBytes> for StructuredHashU32 {
-    fn from(value: StructuredHashBytes) -> Self {
+impl From<StructuredEncodedBytes> for StructuredEncodedU32 {
+    fn from(value: StructuredEncodedBytes) -> Self {
         let mut inner = [0u8; 68];
         inner.copy_from_slice(&value.0);
         let mut u32_inner = [0u32; 17];

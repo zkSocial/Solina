@@ -537,6 +537,7 @@ dependencies = [
 name = "intent"
 version = "0.1.0"
 dependencies = [
+ "num-bigint",
  "plonky2",
  "plonky2_ecdsa",
  "sha3",
