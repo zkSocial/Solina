@@ -1,5 +1,4 @@
 use crate::utils::hash_data;
-use sha3::{Digest, Sha3_256};
 
 pub(crate) const ENCODED_BYTES_LEN: usize = 66;
 pub(crate) const ENCODED_U32_LEN: usize = 17;

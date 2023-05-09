@@ -1,4 +1,4 @@
-use sha3::{Digest, Sha3_256};
+use keccak_hash::keccak256;
 use std::any::type_name;
 
 /// Gets the name of a (generic) type `T`.
@@ -8,10 +8,9 @@ fn type_of<T>() -> &'static str {
 
 /// SHA-256 hash data.
 pub(crate) fn hash_data(data: &[u8]) -> Vec<u8> {
-    let mut hasher = Sha3_256::new();
-    hasher.update(data);
-    let output: &[u8] = &hasher.finalize()[..];
-    output.to_vec()
+    let mut output: Vec<u8> = data.to_vec();
+    keccak256(&mut output);
+    output
 }
 
 /// A macro to be able to encode any Rust struct as a String representing
