@@ -8,9 +8,9 @@ fn type_of<T>() -> &'static str {
 
 /// SHA-256 hash data.
 pub(crate) fn hash_data(data: &[u8]) -> Vec<u8> {
-    let mut output: Vec<u8> = data.to_vec();
-    keccak256(&mut output);
-    output
+    let mut output = [0u8; 32];
+    keccak_hash::write_keccak(data, &mut output);
+    output.to_vec()
 }
 
 /// A macro to be able to encode any Rust struct as a String representing
@@ -42,6 +42,7 @@ macro_rules! type_encoding_macro {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hex_literal::hex;
 
     #[test]
     fn it_works_field_names_and_types() {
@@ -75,5 +76,16 @@ mod tests {
             MyStruct::eip712_encoding(),
             String::from("MyStruct(name String,struct_name String,data Vec<u8>)")
         )
+    }
+
+    #[test]
+    fn it_works_keccak_hash_data() {
+        let mut data = *b"my_message";
+        let mut hashed_data = hash_data(&data);
+        assert_eq!(
+            hashed_data,
+            // retrieved from https://emn178.github.io/online-tools/keccak_256.html
+            hex!("741667d534dd9ae3346736b96c64f3a7f5370afdae8357d7177f14ee61eb8d46")
+        );
     }
 }
