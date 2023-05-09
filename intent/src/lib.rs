@@ -5,6 +5,7 @@ mod crypto;
 mod encoding;
 mod intent;
 mod utils;
+mod witness;
 
 pub(crate) const D: usize = 2;
 pub(crate) type F = GoldilocksField;

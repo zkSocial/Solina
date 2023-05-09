@@ -1,75 +1,46 @@
-use num_bigint::BigUint;
 use plonky2::{
-    field::{
-        extension::Extendable,
-        goldilocks_field::GoldilocksField,
-        types::{Field, PrimeField},
-    },
-    hash::hash_types::RichField,
-    iop::witness::PartialWitness,
-    iop::{target::Target, witness::WitnessWrite},
-    plonk::circuit_builder::{self, CircuitBuilder},
+    field::types::PrimeField,
+    hash::{hash_types::HashOutTarget, poseidon::PoseidonHash},
+    iop::{target::Target, witness::PartialWitness},
+    plonk::circuit_builder::CircuitBuilder,
 };
 use plonky2_ecdsa::{
-    curve::{
-        curve_types::Curve,
-        ecdsa::{ECDSAPublicKey, ECDSASecretKey, ECDSASignature},
-        secp256k1::Secp256K1,
-    },
+    curve::ecdsa::{ECDSAPublicKey, ECDSASignature},
     gadgets::{
-        biguint::{BigUintTarget, WitnessBigUint},
+        biguint::WitnessBigUint,
         curve::{AffinePointTarget, CircuitBuilderCurve},
         ecdsa::{verify_message_circuit, ECDSAPublicKeyTarget, ECDSASignatureTarget},
         nonnative::{CircuitBuilderNonNative, NonNativeTarget},
     },
 };
 
-use crate::{
-    crypto::Curve as C,
-    encoding::{StructuredEncodedBytes, StructuredEncodedU32, ENCODED_U32_LEN},
-    D, F, FF,
-};
+use crate::{crypto::Curve as C, D, F, FF};
 
-// pub(crate) const D: usize = 2;
-// pub(crate) type C = Secp256K1;
-// pub(crate) type F = GoldilocksField;
-
-// pub trait Compile {
-//     type Targets;
-//     fn compile(
-//         &self,
-//         circuit_builder: &mut CircuitBuilder<F, D>,
-//         partial_witness: &mut PartialWitness<F>,
-//     );
-// }
-
-// pub enum Expr {
-//     BigUint(BigUint),
-//     U32(u32),
-//     Signature(ECDSASecretKey<C>),
-//     PublicKey(ECDSAPublicKey<C>),
-//     Message(<C as Curve>::ScalarField),
-// }
-
-pub(crate) trait SignedStructuredHashedMessageCircuit {
+pub(crate) trait ECDSASignedMessageCircuit {
+    /// Interface for generating circuit verification of a ecdsa signed message.
     fn verify_signed_message(&mut self) -> ECDSASignatureCircuitTargets;
-    fn verify_keccak_structured_hash_message(
+}
+
+pub(crate) trait PoseidonECDSASignatureHash {
+    /// Interface for generating circuit verification of poseidon hashing of a ecdsa signed message.
+    fn poseidon_ecdsa_signature_hash(
         &mut self,
-        message: StructuredEncodedU32,
-    ) -> KeccakStructuredHashTargets;
+        ecdsa_signature_targets: ECDSASignatureTarget<C>,
+    ) -> PoseidonECDSASignatureHashTargets;
 }
 
+#[derive(Clone)]
 pub(crate) struct ECDSASignatureCircuitTargets {
-    public_key_ecdsa_target: ECDSAPublicKeyTarget<C>,
-    message_nonnative_target: NonNativeTarget<FF>,
-    signature_ecdsa_signature_target: ECDSASignatureTarget<C>,
+    pub(crate) public_key_ecdsa_target: ECDSAPublicKeyTarget<C>,
+    pub(crate) message_nonnative_target: NonNativeTarget<FF>,
+    pub(crate) signature_ecdsa_signature_target: ECDSASignatureTarget<C>,
 }
 
-pub(crate) struct KeccakStructuredHashTargets {
-    pub(crate) message_targets: [Target; ENCODED_U32_LEN],
+pub(crate) struct PoseidonECDSASignatureHashTargets {
+    pub(crate) poseidon_hash_targets: HashOutTarget,
 }
 
-impl SignedStructuredHashedMessageCircuit for CircuitBuilder<F, D> {
+impl ECDSASignedMessageCircuit for CircuitBuilder<F, D> {
     fn verify_signed_message(&mut self) -> ECDSASignatureCircuitTargets {
         let public_key_affine_target = self.add_virtual_affine_point_target::<C>();
         let public_key_ecdsa_target = ECDSAPublicKeyTarget(public_key_affine_target);
@@ -96,72 +67,42 @@ impl SignedStructuredHashedMessageCircuit for CircuitBuilder<F, D> {
             signature_ecdsa_signature_target,
         }
     }
-
-    fn verify_keccak_structured_hash_message(
-        &mut self,
-        message: StructuredEncodedU32,
-    ) -> KeccakStructuredHashTargets {
-        // add virtual targets for message
-        let message_targets = self.add_virtual_target_arr::<ENCODED_U32_LEN>();
-        // set previous targets as public inputs
-        self.register_public_inputs(&message_targets);
-
-        let first_byte_encoding = self.constant(F::from_canonical_u32(0x19));
-        let second_byte_encoding = self.constant(F::from_canonical_u32(0x01));
-
-        // enforce that the first two bytes are 0x19, 0x01, respectively
-        self.connect(message_targets[0], first_byte_encoding);
-        self.connect(message_targets[1], second_byte_encoding);
-
-        let message = message.to_array();
-        let mut goldilocks_encoded_message = [F::ZERO; ENCODED_U32_LEN];
-        (0..ENCODED_U32_LEN)
-            .for_each(|i| goldilocks_encoded_message[i] = F::from_canonical_u32(message[i]));
-
-        KeccakStructuredHashTargets { message_targets }
-    }
 }
 
-pub(crate) trait SignedStructuredHashedMessageWitness {
-    fn verify_signed_message(
+impl PoseidonECDSASignatureHash for CircuitBuilder<F, D> {
+    fn poseidon_ecdsa_signature_hash(
         &mut self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        message: FF,
-        public_key: ECDSAPublicKey<C>,
-        signature: ECDSASignature<C>,
-        targets: ECDSASignatureCircuitTargets,
-    );
-    fn verify_keccak_structured_hash_message(
-        &mut self,
-        message: StructuredEncodedU32,
-        targets: KeccakStructuredHashTargets,
-    );
-}
+        ecdsa_signature_targets: ECDSASignatureTarget<C>,
+    ) -> PoseidonECDSASignatureHashTargets {
+        let ECDSASignatureTarget {
+            r: r_signature_nonnative_target,
+            s: s_signature_nonnative_target,
+        } = ecdsa_signature_targets;
 
-impl SignedStructuredHashedMessageWitness for PartialWitness<F> {
-    fn verify_signed_message(
-        &mut self,
-        circuit_builder: &mut CircuitBuilder<F, D>,
-        message: FF,
-        public_key: ECDSAPublicKey<C>,
-        signature: ECDSASignature<C>,
-        targets: ECDSASignatureCircuitTargets,
-    ) {
-        let ECDSASignatureCircuitTargets {
-            message_nonnative_target,
-            public_key_ecdsa_target,
-            signature_ecdsa_signature_target,
-        } = targets;
-        let message_biguint_target =
-            circuit_builder.nonnative_to_canonical_biguint(&message_nonnative_target);
-        self.set_biguint_target(&message_biguint_target, &message.to_canonical_biguint());
-    }
+        // unwraps nonnative targets to a biguint targets
+        let r_signature_biguint_target =
+            self.nonnative_to_canonical_biguint(&r_signature_nonnative_target);
+        let s_signature_biguint_target =
+            self.nonnative_to_canonical_biguint(&s_signature_nonnative_target);
 
-    fn verify_keccak_structured_hash_message(
-        &mut self,
-        message: StructuredEncodedU32,
-        targets: KeccakStructuredHashTargets,
-    ) {
+        // retrieve [`Target`] vectors from the limbs of [`BigUintTarget`]
+        let r_signature_targets = r_signature_biguint_target
+            .limbs
+            .iter()
+            .map(|u32_target| u32_target.0)
+            .collect::<Vec<_>>();
+        let s_signature_targets = s_signature_biguint_target
+            .limbs
+            .iter()
+            .map(|u32_target| u32_target.0)
+            .collect::<Vec<_>>();
+
+        let signature_targets = [r_signature_targets, s_signature_targets].concat();
+        let poseidon_hash_targets = self.hash_n_to_hash_no_pad::<PoseidonHash>(signature_targets);
+
+        PoseidonECDSASignatureHashTargets {
+            poseidon_hash_targets: poseidon_hash_targets,
+        }
     }
 }
 
@@ -174,7 +115,11 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use plonky2_ecdsa::curve::{curve_types::CurveScalar, ecdsa::sign_message};
+    use plonky2_ecdsa::curve::{
+        curve_types::{Curve, CurveScalar},
+        ecdsa::{sign_message, ECDSASecretKey},
+        secp256k1::Secp256K1,
+    };
 
     use super::*;
 
@@ -223,6 +168,7 @@ mod tests {
         dbg!(builder.num_gates());
         let data = builder.build::<C>();
         let proof = data.prove(pw).unwrap();
+
         data.verify(proof).expect("Failed to verify proof data")
     }
 }

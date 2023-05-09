@@ -1,4 +1,3 @@
-use keccak_hash::keccak256;
 use std::any::type_name;
 
 /// Gets the name of a (generic) type `T`.
