@@ -1,5 +1,4 @@
 use crate::QmHashBytes;
-use plonky2::{field::extension::Extendable, hash::hash_types::RichField};
 
 pub enum Effect {
     PureEffect,

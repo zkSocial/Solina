@@ -21,7 +21,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Input<F, D> {
 // For now we just encode the underlying field element bytes, does not depend on the
 // actual IPLD field value
 impl<F: RichField + Extendable<D>, const D: usize> Encode<IpldCodec> for Input<F, D> {
-    fn encode<W: std::io::Write>(&self, c: IpldCodec, w: &mut W) -> libipld::Result<()> {
+    fn encode<W: std::io::Write>(&self, _c: IpldCodec, w: &mut W) -> libipld::Result<()> {
         let field_elements_in_bytes = self
             .field_values
             .iter()
@@ -35,7 +35,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Encode<IpldCodec> for Input<F
 // For now we just decode the underlying field element bytes, does not depend on the
 // actual IPLD field value
 impl<F: RichField + Extendable<D>, const D: usize> Decode<IpldCodec> for Input<F, D> {
-    fn decode<R: std::io::Read + std::io::Seek>(c: IpldCodec, r: &mut R) -> libipld::Result<Self> {
+    fn decode<R: std::io::Read + std::io::Seek>(_c: IpldCodec, r: &mut R) -> libipld::Result<Self> {
         // for now we do not know how many bytes need to be read, so we can't allocate
         // the full buffer capacity
         let mut values = vec![];
@@ -56,8 +56,6 @@ impl<F: RichField + Extendable<D>, const D: usize> Decode<IpldCodec> for Input<F
 
 #[cfg(test)]
 mod tests {
-    use std::io::Read;
-
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 
     use super::*;

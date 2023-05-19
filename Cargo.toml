@@ -4,5 +4,6 @@ members = [
     "bin/server",
     "dag",
     "circuit-tree-generation",
+    "linear-dag-demo"
 ]
     

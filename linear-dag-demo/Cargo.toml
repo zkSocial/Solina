@@ -1,5 +1,5 @@
 [package]
-name = "dag"
+name = "linear-dag-demo"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,5 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.70"
 clap = { version = "3.2.22", features = ["derive", "env"] }
-libipld = "0.16.0"
 plonky2 = "0.1.3"
