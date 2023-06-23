@@ -1,0 +1,21 @@
+[package]
+name = "verifier"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+json = "0.12"
+risc0-zkvm = { version = "1.0.0-rc.2", default-features = false, features = ["std"] }
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+anyhow = "1"
+getrandom = { version = "0.2", features = ["js"] }
+wasm-bindgen = "0.2.78"
+
+[workspace]
+
+[patch.crates-io]
+risc0-zkvm = { git = "https://github.com/risc0/risc0", rev = "d02f606ab7d59ad45dc75314eb3e0eef5c9a26b7"}
