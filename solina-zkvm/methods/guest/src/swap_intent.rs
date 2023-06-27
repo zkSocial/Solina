@@ -14,32 +14,27 @@ pub(crate) enum SwapDirection {
 /// Inputs for a swap
 #[derive(Clone, Debug)]
 pub struct SwapInputs {
-    /// address
-    from: BigUint,
     /// quote token
-    quote_token: BigUint,
+    pub(crate) quote_token: BigUint,
     /// base token
-    base_token: BigUint,
+    pub(crate) base_token: BigUint,
     /// quote amount
-    quote_amount: BigUint,
+    pub(crate) quote_amount: BigUint,
     /// trade direction
-    direction: SwapDirection,
+    pub(crate) direction: SwapDirection,
 }
 
 impl StructuredHashInterface for SwapInputs {
     fn type_encode() -> String {
-        "SwapInputs(BigUint from,BigUint quote_token,BigUint base_token,BigUint quote_amount)"
-            .to_string()
+        "SwapInputs(BigUint quote_token,BigUint base_token,BigUint quote_amount)".to_string()
     }
     fn data_encode(&self) -> Vec<u8> {
-        let from_hash = keccak(&self.from.to_bytes_be()).to_fixed_bytes();
         let quote_token_hash = keccak(&self.quote_token.to_bytes_be()).to_fixed_bytes();
         let base_token_hash = keccak(&self.base_token.to_bytes_be()).to_fixed_bytes();
         let quote_amount_hash = keccak(&self.quote_amount.to_bytes_be()).to_fixed_bytes();
         let direction = keccak(&[self.direction as u8]).to_fixed_bytes();
 
         [
-            from_hash,
             quote_token_hash,
             base_token_hash,
             quote_amount_hash,
@@ -53,7 +48,7 @@ impl StructuredHashInterface for SwapInputs {
 #[derive(Clone, Debug)]
 pub struct SwapConstraints {
     /// max slippage amount
-    min_base_token_amount: BigUint,
+    pub(crate) min_base_token_amount: BigUint,
 }
 
 impl StructuredHashInterface for SwapConstraints {
@@ -154,7 +149,6 @@ mod tests {
     #[test]
     fn it_works_swap_inputs_struct_hash() {
         let inputs = SwapInputs {
-            from: BigUint::from(255_u8),
             quote_amount: BigUint::from(1_000_000_000_000_u64),
             quote_token: BigUint::from(125_u8),
             base_token: BigUint::from(64_u8),
@@ -192,7 +186,6 @@ mod tests {
         let intent = SwapIntent {
             address: [0u8; 32],
             inputs: SwapInputs {
-                from: BigUint::from(255_u8),
                 quote_amount: BigUint::from(1_000_000_000_000_u64),
                 quote_token: BigUint::from(125_u8),
                 base_token: BigUint::from(64_u8),

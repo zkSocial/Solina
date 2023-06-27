@@ -5,15 +5,25 @@ pub type SwapScore = u64;
 
 #[derive(Clone, Debug)]
 pub struct SwapRow {
-    pub(crate) addr: PublicKey,
+    pub(crate) address: PublicKey,
+    pub(crate) base_token_address: TokenAddress,
+    pub(crate) quote_token_address: TokenAddress,
     pub(crate) amount_in: Amount,
     pub(crate) amount_out: Amount,
 }
 
 impl SwapRow {
-    pub fn new(addr: PublicKey, amount_in: Amount, amount_out: Amount) -> Self {
+    pub fn new(
+        address: PublicKey,
+        base_token_address: TokenAddress,
+        quote_token_address: TokenAddress,
+        amount_in: Amount,
+        amount_out: Amount,
+    ) -> Self {
         Self {
-            addr,
+            address,
+            base_token_address,
+            quote_token_address,
             amount_in,
             amount_out,
         }
@@ -28,7 +38,7 @@ impl SwapRow {
     }
 
     pub fn get_address(&self) -> PublicKey {
-        self.addr
+        self.address
     }
 }
 
@@ -50,7 +60,7 @@ impl SwapTable {
         let rows = self
             .rows
             .iter()
-            .filter(|x| x.addr == addr)
+            .filter(|x| x.address == addr)
             .collect::<Vec<_>>();
         rows.first().copied()
     }
@@ -99,7 +109,43 @@ impl ChallengeOrganizer<PublicKey, SwapIntent> for SwapChallengeOrganizer {
             )));
         }
 
-        for row in solution.table.rows.iter() {}
+        for row in solution.table.rows.iter() {
+            let row_intent = self
+                .batch_intents
+                .iter()
+                .find(|intent| intent.address == row.address)
+                .ok_or(SolinaError::FailedSolutionVerification(String::from(
+                    "Solver's solution contains invalid intent address",
+                )))?;
+
+            let intent_quote_token_address = row_intent.inputs.quote_token.clone();
+            let intent_base_token_address = row_intent.inputs.base_token.clone();
+            let intent_quote_amount = row_intent.inputs.quote_amount.clone();
+            let intent_min_base_amount = row_intent.constraints.min_base_token_amount.clone();
+
+            let row_quote_token_address = row.base_token_address.clone();
+            let row_base_token_address = row.quote_token_address.clone();
+            let row_base_token_amount = row.amount_in.clone();
+            let row_quote_token_amount = row.amount_out.clone();
+
+            if intent_quote_token_address != row_quote_token_address {
+                return Err(SolinaError::FailedSolutionVerification(String::from(
+                    "Solver's quote token address mismatches that of current intent",
+                )));
+            }
+
+            if intent_base_token_address != row_base_token_address {
+                return Err(SolinaError::FailedSolutionVerification(String::from(
+                    "Solver's base token address mismatches that of current intent",
+                )));
+            }
+
+            let challenger_token_pair_price = self
+                .get_token_pair_price(intent_quote_token_address, intent_base_token_address)
+                .ok_or(SolinaError::FailedSolutionVerification(String::from(
+                    "UnexpectedBehavior: No available challenger price for intent token pair",
+                )))?;
+        }
 
         Ok(())
     }
@@ -149,10 +195,12 @@ impl SwapChallengeOrganizer {
     ) -> Option<Amount> {
         self.token_prices
             .iter()
-            .filter_map(|(a, b, p)| match (a, b) {
-                (token_a, token_b) => Some(p.clone()),
-                (token_b, token_a) => Some(p.clone()),
-                _ => None,
+            .filter_map(|(a, b, p)| {
+                if (a, b) == (&token_a, &token_b) || (a, b) == (&token_b, &token_a) {
+                    Some(p.clone())
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>()
             .first()
@@ -180,6 +228,11 @@ mod tests {
                 BigUint::from_str("2").unwrap(),
                 BigUint::from_str("5_000_000").unwrap(),
             ),
+            (
+                BigUint::from_str("1").unwrap(),
+                BigUint::from_str("2").unwrap(),
+                BigUint::from_str("15_000_000").unwrap(),
+            ),
         ]);
 
         assert_eq!(
@@ -188,6 +241,22 @@ mod tests {
                 BigUint::from_str("1").unwrap(),
             ),
             Some(BigUint::from_str("1_000_000").unwrap())
+        );
+
+        assert_eq!(
+            challenger.get_token_pair_price(
+                BigUint::from_str("0").unwrap(),
+                BigUint::from_str("2").unwrap(),
+            ),
+            Some(BigUint::from_str("5_000_000").unwrap())
+        );
+
+        assert_eq!(
+            challenger.get_token_pair_price(
+                BigUint::from_str("1").unwrap(),
+                BigUint::from_str("2").unwrap(),
+            ),
+            Some(BigUint::from_str("15_000_000").unwrap())
         )
     }
 }
