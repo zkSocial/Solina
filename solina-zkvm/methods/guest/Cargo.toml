@@ -6,7 +6,9 @@ edition = "2021"
 [workspace]
 
 [dependencies]
+bigdecimal = "0.3.1"
 keccak-hash = "0.10.0"
 num-bigint = "0.4.3"
+num-traits = "0.2"
 risc0-zkvm = { version = "0.15.3", default-features = false }
 solina = { path = "../../../solina" }

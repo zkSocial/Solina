@@ -1,4 +1,11 @@
-use crate::{swap_intent::SwapIntent, Amount, PublicKey, TokenAddress};
+use std::{
+    ops::{Div, Mul},
+    str::FromStr,
+};
+
+use crate::{swap_intent::SwapIntent, Amount, Price, PublicKey, TokenAddress};
+use bigdecimal::{BigDecimal, ToPrimitive};
+use num_bigint::ToBigInt;
 use solina::{challenger::ChallengeOrganizer, error::SolinaError};
 
 pub type SwapScore = u64;
@@ -75,11 +82,11 @@ pub struct SwapChallengeOrganizer {
     batch_intents: Vec<SwapIntent>,
     solver_registry: Vec<PublicKey>,
     solutions: Vec<(PublicKey, SwapSolution)>,
-    token_prices: Vec<(TokenAddress, TokenAddress, Amount)>,
+    token_prices: Vec<(TokenAddress, TokenAddress, Price)>,
 }
 
 impl SwapChallengeOrganizer {
-    pub fn new(token_prices: Vec<(TokenAddress, TokenAddress, Amount)>) -> Self {
+    pub fn new(token_prices: Vec<(TokenAddress, TokenAddress, Price)>) -> Self {
         Self {
             batch_intents: vec![],
             solver_registry: vec![],
@@ -140,11 +147,35 @@ impl ChallengeOrganizer<PublicKey, SwapIntent> for SwapChallengeOrganizer {
                 )));
             }
 
+            if intent_min_base_amount > row_base_token_amount {
+                return Err(SolinaError::FailedSolutionVerification(String::from(
+                    "Solver's solution failed to satisfy user intent constraints",
+                )));
+            }
+
             let challenger_token_pair_price = self
                 .get_token_pair_price(intent_quote_token_address, intent_base_token_address)
                 .ok_or(SolinaError::FailedSolutionVerification(String::from(
                     "UnexpectedBehavior: No available challenger price for intent token pair",
                 )))?;
+
+            let expected_solution_base_amount =
+                BigDecimal::parse_bytes(row_quote_token_amount.to_str_radix(10).as_bytes(), 10)
+                    .expect("Failed to parse BigDecimal from bytes")
+                    .mul(challenger_token_pair_price)
+                    .with_scale(0)
+                    .to_bigint() // take the floor of the number
+                    .ok_or(SolinaError::ConversionFailed(String::from(
+                        "Failed to convert price `BigDecimal` to `BigInt`",
+                    )))?;
+
+            if expected_solution_base_amount != row_base_token_amount.into() {
+                return Err(SolinaError::FailedSolutionVerification(String::from("Solver's solution base token amount was not computed according to challenger's proposed token pair price")));
+            }
+
+            if intent_quote_amount < row_quote_token_amount {
+                return Err(SolinaError::FailedSolutionVerification(String::from("Solver's solution is invalid: traded quote amount is higher than intent's provided quote amount")));
+            }
         }
 
         Ok(())
@@ -192,12 +223,15 @@ impl SwapChallengeOrganizer {
         &self,
         token_a: TokenAddress,
         token_b: TokenAddress,
-    ) -> Option<Amount> {
+    ) -> Option<Price> {
         self.token_prices
             .iter()
             .filter_map(|(a, b, p)| {
-                if (a, b) == (&token_a, &token_b) || (a, b) == (&token_b, &token_a) {
+                if (a, b) == (&token_a, &token_b) {
                     Some(p.clone())
+                } else if (a, b) == (&token_b, &token_a) {
+                    // the price of token pair (a, b) is the inverse of the price of token pair (b, a)
+                    Some(BigDecimal::from(1).div(p.clone()))
                 } else {
                     None
                 }
@@ -221,17 +255,17 @@ mod tests {
             (
                 BigUint::from_str("0").unwrap(),
                 BigUint::from_str("1").unwrap(),
-                BigUint::from_str("1_000_000").unwrap(),
+                BigDecimal::from_str("1_000_000").unwrap(),
             ),
             (
                 BigUint::from_str("0").unwrap(),
                 BigUint::from_str("2").unwrap(),
-                BigUint::from_str("5_000_000").unwrap(),
+                BigDecimal::from_str("5_000_000").unwrap(),
             ),
             (
                 BigUint::from_str("1").unwrap(),
                 BigUint::from_str("2").unwrap(),
-                BigUint::from_str("15_000_000").unwrap(),
+                BigDecimal::from_str("15_000_000").unwrap(),
             ),
         ]);
 
@@ -240,7 +274,7 @@ mod tests {
                 BigUint::from_str("0").unwrap(),
                 BigUint::from_str("1").unwrap(),
             ),
-            Some(BigUint::from_str("1_000_000").unwrap())
+            Some(BigDecimal::from_str("1_000_000").unwrap())
         );
 
         assert_eq!(
@@ -248,7 +282,7 @@ mod tests {
                 BigUint::from_str("0").unwrap(),
                 BigUint::from_str("2").unwrap(),
             ),
-            Some(BigUint::from_str("5_000_000").unwrap())
+            Some(BigDecimal::from_str("5_000_000").unwrap())
         );
 
         assert_eq!(
@@ -256,7 +290,39 @@ mod tests {
                 BigUint::from_str("1").unwrap(),
                 BigUint::from_str("2").unwrap(),
             ),
-            Some(BigUint::from_str("15_000_000").unwrap())
+            Some(BigDecimal::from_str("15_000_000").unwrap())
+        );
+
+        // assert_eq!(
+        //     challenger.get_token_pair_price(
+        //         BigUint::from_str("1").unwrap(),
+        //         BigUint::from_str("0").unwrap(),
+        //     ),
+        //     Some(BigDecimal::from_str("0").unwrap())
+        // );
+
+        assert_eq!(
+            challenger.get_token_pair_price(
+                BigUint::from_str("0").unwrap(),
+                BigUint::from_str("2").unwrap(),
+            ),
+            Some(BigDecimal::from_str("5_000_000").unwrap())
+        );
+
+        assert_eq!(
+            challenger.get_token_pair_price(
+                BigUint::from_str("1").unwrap(),
+                BigUint::from_str("2").unwrap(),
+            ),
+            Some(BigDecimal::from_str("15_000_000").unwrap())
         )
+    }
+
+    #[test]
+    fn aux_test() {
+        let x = BigDecimal::from_str("1.99999001").unwrap();
+        let (z, y) = x.as_bigint_and_exponent();
+        let w = x.with_scale(0);
+        println!("{}", w.to_bigint().unwrap());
     }
 }
