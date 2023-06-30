@@ -293,28 +293,28 @@ mod tests {
             Some(BigDecimal::from_str("15_000_000").unwrap())
         );
 
-        // assert_eq!(
-        //     challenger.get_token_pair_price(
-        //         BigUint::from_str("1").unwrap(),
-        //         BigUint::from_str("0").unwrap(),
-        //     ),
-        //     Some(BigDecimal::from_str("0").unwrap())
-        // );
-
         assert_eq!(
             challenger.get_token_pair_price(
+                BigUint::from_str("1").unwrap(),
                 BigUint::from_str("0").unwrap(),
-                BigUint::from_str("2").unwrap(),
             ),
-            Some(BigDecimal::from_str("5_000_000").unwrap())
+            Some(BigDecimal::from_str("0.000001").unwrap())
         );
 
         assert_eq!(
             challenger.get_token_pair_price(
-                BigUint::from_str("1").unwrap(),
                 BigUint::from_str("2").unwrap(),
+                BigUint::from_str("0").unwrap(),
             ),
-            Some(BigDecimal::from_str("15_000_000").unwrap())
+            Some(BigDecimal::from_str("0.0000002").unwrap())
+        );
+
+        assert_eq!(
+            challenger.get_token_pair_price(
+                BigUint::from_str("2").unwrap(),
+                BigUint::from_str("1").unwrap(),
+            ),
+            Some(BigDecimal::from_str("0.00000006666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667").unwrap())
         )
     }
 
