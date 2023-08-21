@@ -1,0 +1,9 @@
+- [ ] IPLD serialisation of things, for hashing
+- [ ] what hash function? Poseidon, or Keccak
+- [ ] setup IPFS for storage
+- [ ] make the objects (see Readme)
+- [ ] a simple usecase of account balance
+    - [ ] should uniqueness of history be enforced (how? )
+    - ZEXE-like ?
+- [ ] connect it to the glorious server
+- [ ] make a simple client

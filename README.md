@@ -1,82 +1,57 @@
-# zkLambda
+# Solina
 
-This is a draft proposal for provable anonymous functions as a platform.
+An intent-solver framework, for customized problem-specific computing solutions.
 
-## Motivation
+## Architecture
 
-The goal of zkLambda is to provide a platform for provable anonymous functions. The platform should be able to provide the following features:
-- developer can write a function in a high-level language (in particular Rust) and deploy it to the platform
-- developer can invoke the function with a set of inputs
-- the function and the inputs should be hashed, such that reinvokation can be a simple look-up
-- the function should be compiled to RISC-5 instruction set, such that it can be run in RISC-0 zkVM
-- (later counterfactual proving) the execution trace of the function call should be committed to, but the proof itself should not be computed by default
-- outputs from previous functions should be able to be used as inputs to the next function
-- (later) proofs of a sequence of function calls should be able to be aggregated or recursevely proven (TBD what makes more sense)
+1. Given a well specified computing problem, like trading on a (or multiple) DEXes with many economic agents, users express their `Intent`, that is, their desired outcome given the user inputs satisfying precise (boundary) constraints.
 
-## Design
+2. Intents are aggregated in batches, and each batch is processed via multiple `Solver`'s. A Solver is an entity, with enough available compute power, that produces a solution specific to the processed batch. 
 
-(Inspiration basis from IPVM specification research)
+3. Solutions presented by `Solver`'s should, ideally, satisfy the biggest number of participants, by a well defined metric (which is context dependent).
 
-The design of zkLambda is can be structured as follows (below is pseudo-code-semi-json):
+4. Given such a metric, users satisfaction over a solution can be quantified, which allows to choose the best solution among all proposed `Solver`'s solutions. The best available solution(s) then accrues fues to Solvers. 
 
-1. developers can invoke a function call by submitting a `job` to the zkLambda platform
-```ipld
-"job": {
-    "invocation" {
-        "function": QmHashOfFunction,
-        "inputs": [
-            Input1,
-            Input2,
-            Input3,
-        ]
-        },
-    "config": someConfigToOverrideDefaults,
-}
-```
+5. In this way, we allow for a market between user `Intent`s and `Solver`s compute power. 
 
-Config can set max cost, cron schedule, whether enqueue to prove the function (for PoC default true), etc.
+## Example
 
-2. the result is encapsulated in a session when returned
-```ipld
-"session": {
-    "job": QmHashOfJob,
-    "result": {
-        "invocation": QmHashOfInvocation,
-        "output(pure)": QmHashOfPureOutput,
-        "effects": [
-            EffectFutureForProof,
-            Effect1,
-            Effect2,
-        ]
-    },
-    "trace": QmHashOfProvableTrace,
-    "error": Option(QmHashOfError),
-}
-```
+As previously mentioned, consider the case in which multiple market 
+participants express their trade `Intent` (for example, Alice expresses the 
+intent of swaping `X` tokens `A` by at least an amount `Y` of tokens B, at 
+a current fixed price). 
 
-The effects can be instructions for continued computation, internal error handling, etc. (pure effects), or affect the outside world (impure effects that can't be rolled back) external actions (eg. sending an email, or send on-chain tx with proof).
+These trading `Intent`s are aggregated into a batch of `N`, with a
+fixed price (possibly, the average price, over multiple oracles, at the given time of execution). 
 
-Pure effects can be job descriptions for future invocations, eg. `job2` to be enqueued. In particular a job to output as an effect is the (lazy) proof calculations of the (current/previous) invocations.
+A `Solver` provides a possible solution to the 
+current problem (possibly, by matching Alice's trade with Bob's, in which
+the aggregate satisfies all the constraints).
 
-3. chaining together state
+Given the proposed solution, users express their satisfaction, if their intent has been processed and the solution with highest number of processed trades is chosen. 
 
-To track an event stream, the developer can submit a job with aditional inputs that are pure outputs of a previous job, recursively so. This can be used to track a stateful event stream (over a linear stream or a DAG), eg. a user's account balance.
+The `Solver` who proposed this solution accrues the fees, and the trades
+are performed (say, on a DEX, or multiple DEXes).
 
-```ipld
-"job": {
-    "invocation" {
-        "function": QmHashOfFunction,
-        "inputs": [
-            Input1,
-            Input2,
-            Input3,
-        ],
-        "chainedInputs": [
-            QmHashOfPureOutput1,
-            QmHashOfPureOutput2,
-            QmHashOfPureOutput3,
-        ]
-        },
-    "config": someConfigToOverrideDefaults,
-}
-```
+## Cryptographic guarantees
+
+To automize the described process, we propose the use of Zero Knowledge cryptography to testify to the following requirements:
+
+1. `Intent`s are signed by users, so they can be claimed. We use ECDSA
+signatures of Ethereum's EIP-712 structured hash of the `Intent` contents,
+full compatible with Ethereum's signature scheme.
+
+2. `Intent` constraints are satisfied by each proposed solution. This reflects the integrity of each `Solver`'s solution.
+
+## Related work
+
+We present a, possibly non-exhaustive, list of related projects, which we
+derived inspiration from:
+
+1. Cow swap intent based trade platform:
+
+https://docs.cow.fi/overview/introduction
+
+2. Anoma's intent centric protocol:
+
+https://anoma.net/
