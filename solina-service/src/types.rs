@@ -3,10 +3,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentRequest {
-    intent: Intent,
+    pub(crate) intent_bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Uuid {
+    pub(crate) id: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentResponse {
-    is_sucess: bool,
+    pub(crate) intent_id: Option<Uuid>,
+    pub(crate) is_success: bool,
+    pub(crate) message: String,
 }

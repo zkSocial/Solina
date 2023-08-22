@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+pub mod errors;
 pub mod intents;
 pub mod types;
 pub mod worker;

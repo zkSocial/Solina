@@ -11,6 +11,22 @@ pub enum TradeDirection {
     Sell,
 }
 
+impl TradeDirection {
+    pub fn to_bool(self) -> bool {
+        match self {
+            Self::Buy => false,
+            Self::Sell => true,
+        }
+    }
+
+    pub fn from_bool(value: bool) -> Self {
+        if value {
+            return Self::Sell;
+        }
+        return Self::Buy;
+    }
+}
+
 /// Inputs for a swap
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentInputs {
