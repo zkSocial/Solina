@@ -11,4 +11,7 @@ futures = "0.3.28"
 service = "0.0.0"
 tokio = "1.32.0"
 solina = { path = "../solina/" }
-num-bigint = "0.4.3"
+num-bigint = { version = "0.4.3", features = ["serde"] }
+keccak-hash = "0.10.0"
+serde = { version = "1.0.185", features = ["derive"] }
+thiserror = "1.0.47"
