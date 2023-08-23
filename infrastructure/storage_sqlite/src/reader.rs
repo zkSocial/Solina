@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Error};
-use diesel::{sql_query, SqliteConnection};
+use diesel::{sql_query, RunQueryDsl, SqliteConnection};
+use solina_service::{intents, types::Uuid};
+use std::sync::MutexGuard;
 
 pub struct ReadTransaction<'a> {
     connection: MutexGuard<'a, SqliteConnection>,
@@ -50,7 +52,11 @@ impl<'a> ReadTransaction<'a> {
 }
 
 impl<'a> ReadTransaction<'a> {
-    pub(super) fn get_intent(id: Uuid) -> Option<Intent> {
+    pub(super) fn get_intent(id: Uuid) -> Option<intents::Intent> {
+        None
+    }
+
+    pub(super) fn get_intents_batch() -> Option<intents::Intent> {
         None
     }
 }
