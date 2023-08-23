@@ -8,7 +8,7 @@ pub struct IntentRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Uuid {
-    pub(crate) id: [u8; 32],
+    pub id: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

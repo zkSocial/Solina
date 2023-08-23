@@ -11,7 +11,7 @@ pub type PublicKey = [u8; 32];
 pub type TokenAddress = [u8; 32];
 
 #[derive(Clone, Debug)]
-pub struct Signature([u8; 64]);
+pub struct Signature(pub [u8; 64]);
 
 impl<'de> Deserialize<'de> for Signature {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
