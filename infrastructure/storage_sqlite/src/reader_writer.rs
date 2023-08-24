@@ -27,11 +27,11 @@ impl<'a> ReadWriterTransaction<'a> {
         self.is_done
     }
 
-    pub(super) fn connection(&mut self) -> &mut SqliteConnection {
+    pub fn connection(&mut self) -> &mut SqliteConnection {
         &mut self.connection
     }
 
-    pub(super) fn commit(&mut self) -> Result<(), Error> {
+    pub fn commit(&mut self) -> Result<(), Error> {
         sql_query("COMMIT")
             .execute(self.connection())
             .map_err(|e| {
@@ -44,7 +44,7 @@ impl<'a> ReadWriterTransaction<'a> {
         Ok(())
     }
 
-    pub(super) fn rollback(&mut self) -> Result<(), SolinaStorageError> {
+    pub fn rollback(&mut self) -> Result<(), SolinaStorageError> {
         sql_query("ROLLBACK")
             .execute(self.connection())
             .map_err(|e| {
@@ -60,7 +60,7 @@ impl<'a> ReadWriterTransaction<'a> {
 
 impl<'a> ReadWriterTransaction<'a> {
     // ----------------------------------------------- Read methods -----------------------------------------------
-    pub(super) fn get_intent(&mut self, id: Uuid) -> Result<Intent, SolinaStorageError> {
+    pub fn get_intent(&mut self, id: Uuid) -> Result<Intent, SolinaStorageError> {
         use crate::schema::intents;
 
         let hex_id = encode(id.id);
@@ -79,15 +79,12 @@ impl<'a> ReadWriterTransaction<'a> {
         }
     }
 
-    pub(super) fn get_intents_batch() -> Option<intent::Intent> {
+    pub fn get_intents_batch() -> Option<intent::Intent> {
         None
     }
 
     // ----------------------------------------------- Write methods -----------------------------------------------
-    pub(super) fn store_intents(
-        &mut self,
-        intents: &[intent::Intent],
-    ) -> Result<(), SolinaStorageError> {
+    pub fn store_intents(&mut self, intents: &[intent::Intent]) -> Result<(), SolinaStorageError> {
         use crate::schema::intents;
 
         let intents = intents

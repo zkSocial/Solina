@@ -2732,9 +2732,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.95"
+version = "1.0.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
+checksum = "693151e1ac27563d6dbcec9dee9fbd5da8539b20fa14ad3752b2e6d363ace360"
 dependencies = [
  "itoa",
  "ryu",
@@ -2907,6 +2907,7 @@ dependencies = [
  "keccak-hash 0.10.0",
  "num-bigint 0.4.4",
  "serde",
+ "serde_json",
  "service",
  "solina",
  "storage-sqlite",

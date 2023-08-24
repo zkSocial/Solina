@@ -1,24 +1,24 @@
 use crate::{
     error::SolinaError,
-    types::{IntentRequest, IntentResponse},
     mempool::SolinaMempool,
+    types::{IntentRequest, IntentResponse},
 };
-use solina::intent::Intent;
 use bincode::deserialize;
 use core::pin::Pin;
 use futures::{stream::FuturesUnordered, Future};
+use solina::intent::Intent;
 use solina::{structured_hash::StructuredHashInterface, Uuid};
+use storage_sqlite::SolinaStorage;
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
-use storage_sqlite::SolinaStorage;
 
 pub struct SolinaWorker {
     rx_intent_request: Receiver<IntentRequest>,
     tx_intent_response: Sender<IntentResponse>,
     mempool: SolinaMempool,
-    storage_connection: SolinaStorage
+    storage_connection: SolinaStorage,
 }
 
 // TODO: add logic for shutdown signal
@@ -43,13 +43,9 @@ impl SolinaWorker {
         storage_connection: SolinaStorage,
     ) -> JoinHandle<Result<(), SolinaError>> {
         tokio::spawn(async move {
-            Self::new(
-                rx_intent_request,
-                tx_intent_response,
-                storage_connection,
-            )
-            .run()
-            .await
+            Self::new(rx_intent_request, tx_intent_response, storage_connection)
+                .run()
+                .await
         })
     }
 
@@ -75,6 +71,41 @@ impl SolinaWorker {
                 }
             };
             let intent_structured_hash = intent.structured_hash();
+            let intent_batch = self.mempool.insert(intent.clone());
+            if let Some(batch) = intent_batch {
+                let result: Result<(), String> = {
+                    match self.storage_connection.create_read_transaction() {
+                        Ok(mut tx) => {
+                            if let Err(e) = tx.store_intents(&batch) {
+                                eprintln!(
+                                    "Failed to store intents to the database, with error: {}",
+                                    e.to_string()
+                                );
+                                Err(e.to_string())
+                            } else {
+                                Ok(())
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to get read_write transaction from database");
+                            Err(e.to_string())
+                        }
+                    };
+                    Ok(())
+                };
+                if let Err(e) = result {
+                    self.tx_intent_response
+                        .send(IntentResponse {
+                            intent_id: Some(Uuid {
+                                id: intent_structured_hash,
+                            }),
+                            is_success: true,
+                            message: e.to_string(),
+                        })
+                        .await
+                        .map_err(|e| SolinaError::SolinaWorkerError(e.to_string()))?;
+                }
+            }
             let response = IntentResponse {
                 intent_id: Some(Uuid {
                     id: intent_structured_hash,
