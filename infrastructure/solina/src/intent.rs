@@ -1,8 +1,7 @@
-use crate::{PublicKey, Signature, TokenAddress};
+use crate::{structured_hash::StructuredHashInterface, PublicKey, Signature, TokenAddress};
 use keccak_hash::keccak;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
-use solina::structured_hash::StructuredHashInterface;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[allow(dead_code)]

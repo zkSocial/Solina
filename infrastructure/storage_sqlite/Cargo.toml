@@ -9,7 +9,7 @@ edition = "2021"
 diesel = { version = "2.1.0", features = ["sqlite", "chrono"] } 
 chrono = "0.4.26"
 anyhow = "1.0.75"
-solina = { path = "../../solina/" }
-solina-service = { path = "../solina-service" }
+solina = { path = "../solina" }
 hex = "0.4.3"
 diesel_migrations = "2.1.0"
+thiserror = "1.0.47"

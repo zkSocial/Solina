@@ -1,10 +1,10 @@
-use crate::models::Intent;
+use crate::{error::SolinaStorageError, models::Intent};
 use anyhow::{anyhow, Error};
 use diesel::{
     sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SqliteConnection,
 };
 use hex::encode;
-use solina_service::{errors::SolinaError, intents, types::Uuid};
+use solina::{intent, Uuid};
 use std::sync::MutexGuard;
 
 // Sqlite does not make a distinction between read and write transactions.
@@ -35,23 +35,23 @@ impl<'a> ReadWriterTransaction<'a> {
         sql_query("COMMIT")
             .execute(self.connection())
             .map_err(|e| {
-                anyhow!(
+                SolinaStorageError::StorageError(format!(
                     "Failed to commit transaction, with error: {}",
                     e.to_string()
-                )
+                ))
             })?;
         self.is_done = true;
         Ok(())
     }
 
-    pub(super) fn rollback(&mut self) -> Result<(), Error> {
+    pub(super) fn rollback(&mut self) -> Result<(), SolinaStorageError> {
         sql_query("ROLLBACK")
             .execute(self.connection())
             .map_err(|e| {
-                anyhow!(
+                SolinaStorageError::StorageError(format!(
                     "Failed to rollback transaction, with error: {}",
                     e.to_string()
-                )
+                ))
             })?;
         self.is_done = true;
         Ok(())
@@ -60,7 +60,7 @@ impl<'a> ReadWriterTransaction<'a> {
 
 impl<'a> ReadWriterTransaction<'a> {
     // ----------------------------------------------- Read methods -----------------------------------------------
-    pub(super) fn get_intent(&mut self, id: Uuid) -> Result<Intent, SolinaError> {
+    pub(super) fn get_intent(&mut self, id: Uuid) -> Result<Intent, SolinaStorageError> {
         use crate::schema::intents;
 
         let hex_id = encode(id.id);
@@ -68,23 +68,26 @@ impl<'a> ReadWriterTransaction<'a> {
             .filter(intents::id.eq(hex_id.clone()))
             .first(self.connection())
             .optional()
-            .map_err(|e| SolinaError::SolinaStorageError(e.to_string()))?;
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
         match result {
             Some(output) => Ok(output),
-            None => Err(SolinaError::SolinaStorageError(format!(
+            None => Err(SolinaStorageError::StorageError(format!(
                 "Could not find stored intent with {}",
                 hex_id,
             ))),
         }
     }
 
-    pub(super) fn get_intents_batch() -> Option<intents::Intent> {
+    pub(super) fn get_intents_batch() -> Option<intent::Intent> {
         None
     }
 
     // ----------------------------------------------- Write methods -----------------------------------------------
-    pub(super) fn store_intents(&mut self, intents: &[intents::Intent]) -> Result<(), SolinaError> {
+    pub(super) fn store_intents(
+        &mut self,
+        intents: &[intent::Intent],
+    ) -> Result<(), SolinaStorageError> {
         use crate::schema::intents;
 
         let intents = intents
@@ -94,7 +97,7 @@ impl<'a> ReadWriterTransaction<'a> {
         diesel::insert_into(intents::table)
             .values(intents)
             .execute(self.connection())
-            .map_err(|e| SolinaError::SolinaStorageError(e.to_string()))?;
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
         Ok(())
     }

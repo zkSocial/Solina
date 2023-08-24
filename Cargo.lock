@@ -763,11 +763,11 @@ dependencies = [
  "anyhow",
  "hex-literal",
  "libsecp256k1",
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
  "plonky2",
  "plonky2_ecdsa",
  "rand 0.8.5",
- "solina",
+ "solina-depr",
  "thiserror",
  "types",
 ]
@@ -1753,7 +1753,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
 dependencies = [
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
  "num-complex",
  "num-integer",
  "num-iter",
@@ -1774,9 +1774,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
+checksum = "608e7659b5c3d7cba262d894801b9ec9d00de989e8a82bd4bef91d08da45cdc0"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -1834,16 +1834,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0638a1c9d0a3c0914158145bc76cff373a75a627e6ecbfb71cbe6f453a5a19b0"
 dependencies = [
  "autocfg",
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
  "num-integer",
  "num-traits",
 ]
 
 [[package]]
 name = "num-traits"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
+checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
 dependencies = [
  "autocfg",
 ]
@@ -2877,7 +2877,16 @@ name = "solina"
 version = "0.1.0"
 dependencies = [
  "keccak-hash 0.10.0",
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
+ "serde",
+]
+
+[[package]]
+name = "solina-depr"
+version = "0.1.0"
+dependencies = [
+ "keccak-hash 0.10.0",
+ "num-bigint 0.4.4",
  "thiserror",
 ]
 
@@ -2896,10 +2905,11 @@ dependencies = [
  "bincode",
  "futures 0.3.28",
  "keccak-hash 0.10.0",
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
  "serde",
  "service",
  "solina",
+ "storage-sqlite",
  "thiserror",
  "tokio 1.32.0",
 ]
@@ -2920,7 +2930,7 @@ dependencies = [
  "diesel_migrations",
  "hex",
  "solina",
- "solina-service",
+ "thiserror",
 ]
 
 [[package]]
@@ -3506,7 +3516,7 @@ version = "0.1.0"
 dependencies = [
  "hex-literal",
  "libsecp256k1",
- "num-bigint 0.4.3",
+ "num-bigint 0.4.4",
  "plonky2",
  "plonky2_ecdsa",
  "rand 0.8.5",

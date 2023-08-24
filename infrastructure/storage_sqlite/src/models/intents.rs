@@ -1,8 +1,8 @@
 use chrono::{NaiveDateTime, Utc};
 use diesel::{Identifiable, Insertable, Queryable};
 use hex::encode;
+use solina::intent::Intent as SolinaIntent;
 use solina::structured_hash::StructuredHashInterface;
-use solina_service::intents::Intent as SolinaIntent;
 
 use crate::schema::intents;
 

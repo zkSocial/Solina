@@ -1,20 +1,24 @@
 use crate::{
-    errors::SolinaError,
-    intents::Intent,
-    types::{IntentRequest, IntentResponse, Uuid},
+    error::SolinaError,
+    types::{IntentRequest, IntentResponse},
+    mempool::SolinaMempool,
 };
+use solina::intent::Intent;
 use bincode::deserialize;
 use core::pin::Pin;
 use futures::{stream::FuturesUnordered, Future};
-use solina::structured_hash::StructuredHashInterface;
+use solina::{structured_hash::StructuredHashInterface, Uuid};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     task::JoinHandle,
 };
+use storage_sqlite::SolinaStorage;
 
 pub struct SolinaWorker {
     rx_intent_request: Receiver<IntentRequest>,
     tx_intent_response: Sender<IntentResponse>,
+    mempool: SolinaMempool,
+    storage_connection: SolinaStorage
 }
 
 // TODO: add logic for shutdown signal
@@ -22,10 +26,13 @@ impl SolinaWorker {
     pub fn new(
         rx_intent_request: Receiver<IntentRequest>,
         tx_intent_response: Sender<IntentResponse>,
+        storage_connection: SolinaStorage,
     ) -> Self {
         Self {
             rx_intent_request,
             tx_intent_response,
+            mempool: SolinaMempool::new(),
+            storage_connection,
         }
     }
 
@@ -33,12 +40,14 @@ impl SolinaWorker {
         &self,
         rx_intent_request: Receiver<IntentRequest>,
         tx_intent_response: Sender<IntentResponse>,
+        storage_connection: SolinaStorage,
     ) -> JoinHandle<Result<(), SolinaError>> {
         tokio::spawn(async move {
-            Self {
+            Self::new(
                 rx_intent_request,
                 tx_intent_response,
-            }
+                storage_connection,
+            )
             .run()
             .await
         })
