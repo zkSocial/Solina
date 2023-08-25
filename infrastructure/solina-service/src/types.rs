@@ -1,14 +1,9 @@
-use crate::intents::Intent;
 use serde::{Deserialize, Serialize};
+use solina::{intent::Intent, Uuid};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentRequest {
     pub(crate) intent_bytes: Vec<u8>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Uuid {
-    pub(crate) id: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

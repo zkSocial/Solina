@@ -1,9 +1,9 @@
 [workspace]
 members = [
     "eth-wallet",
-    "solina",
     "solina-zkvm/host",
     "solina-zkvm/methods",
+    "infrastructure/solina",
     "infrastructure/solina-service",
     "infrastructure/storage_sqlite",
     "types",

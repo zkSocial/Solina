@@ -1,8 +1,7 @@
-use crate::{PublicKey, Signature, TokenAddress};
+use crate::{structured_hash::StructuredHashInterface, PublicKey, Signature, TokenAddress};
 use keccak_hash::keccak;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
-use solina::structured_hash::StructuredHashInterface;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[allow(dead_code)]
@@ -31,13 +30,13 @@ impl TradeDirection {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentInputs {
     /// quote token
-    quote_token: TokenAddress,
+    pub quote_token: TokenAddress,
     /// base token
-    base_token: TokenAddress,
+    pub base_token: TokenAddress,
     /// quote amount
-    quote_amount: BigUint,
+    pub quote_amount: BigUint,
     /// trade direction
-    direction: TradeDirection,
+    pub direction: TradeDirection,
 }
 
 impl StructuredHashInterface for IntentInputs {
@@ -80,7 +79,7 @@ impl IntentInputs {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct IntentConstraints {
     /// max slippage amount
-    min_base_token_amount: BigUint,
+    pub min_base_token_amount: BigUint,
 }
 
 impl StructuredHashInterface for IntentConstraints {
@@ -104,10 +103,10 @@ impl IntentConstraints {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Intent {
-    public_key: PublicKey,
-    inputs: IntentInputs,
-    constraints: IntentConstraints,
-    signature: Signature,
+    pub public_key: PublicKey,
+    pub inputs: IntentInputs,
+    pub constraints: IntentConstraints,
+    pub signature: Signature,
 }
 
 impl Intent {
