@@ -100,7 +100,7 @@ impl SolinaWorker {
                                 id: intent_structured_hash,
                             }),
                             is_success: true,
-                            message: e.to_string(),
+                            message: e,
                         })
                         .await
                         .map_err(|e| SolinaError::SolinaWorkerError(e.to_string()))?;

@@ -4,6 +4,7 @@ members = [
     "solina-zkvm/host",
     "solina-zkvm/methods",
     "infrastructure/solina",
+    "infrastructure/solina-client",
     "infrastructure/solina-service",
     "infrastructure/storage_sqlite",
     "types",
