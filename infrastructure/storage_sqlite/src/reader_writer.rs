@@ -31,7 +31,7 @@ impl<'a> ReadWriterTransaction<'a> {
         &mut self.connection
     }
 
-    pub fn commit(&mut self) -> Result<(), Error> {
+    pub fn commit(&mut self) -> Result<(), SolinaStorageError> {
         sql_query("COMMIT")
             .execute(self.connection())
             .map_err(|e| {
