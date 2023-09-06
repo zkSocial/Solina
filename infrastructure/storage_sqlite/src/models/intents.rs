@@ -1,6 +1,7 @@
 use chrono::{NaiveDateTime, Utc};
 use diesel::{Identifiable, Insertable, Queryable};
 use hex::encode;
+use num_traits::cast::ToPrimitive;
 use solina::intent::Intent as SolinaIntent;
 use solina::structured_hash::StructuredHashInterface;
 
@@ -27,13 +28,8 @@ impl Intent {
         let signature = encode(&intent.signature.0);
         let base_token = encode(&intent.inputs.base_token);
         let quote_token = encode(&intent.inputs.quote_token);
-        let mut min_base_token_amount_bytes = [0u8; 8];
-        min_base_token_amount_bytes
-            .copy_from_slice(&intent.constraints.min_base_token_amount.to_bytes_be());
-        let min_base_token_amount = i64::from_be_bytes(min_base_token_amount_bytes); // TODO: for now we use i64 representations, need refactor
-        let mut quote_amount_bytes = [0u8; 8];
-        quote_amount_bytes.copy_from_slice(&intent.inputs.quote_amount.to_bytes_be());
-        let quote_amount = i64::from_be_bytes(quote_amount_bytes);
+        let min_base_token_amount = intent.constraints.min_base_token_amount.to_i64().unwrap(); // TODO: for now we use i64 representations, need refactor
+        let quote_amount = intent.inputs.quote_amount.to_i64().unwrap();
         let created_at = Utc::now().naive_utc();
         let direction = intent.inputs.direction.to_bool();
 

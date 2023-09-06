@@ -12,3 +12,19 @@ pub struct IntentResponse {
     pub(crate) is_success: bool,
     pub(crate) message: String,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IntentJrpcRequest {
+    pub jsonrpc: String,
+    pub method: String,
+    pub params: Option<serde_json::Value>,
+    pub id: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IntentJrpcResponse {
+    pub jsonrpc: String,
+    pub result: Option<serde_json::Value>,
+    pub error: Option<String>,
+    pub id: Option<serde_json::Value>,
+}

@@ -37,6 +37,7 @@ impl IntentClient {
     pub async fn send_request<T: Serialize, R: DeserializeOwned>(
         &mut self,
         data: T,
+        method: &str,
     ) -> Result<R, anyhow::Error> {
         let intent_data = serde_json::to_value(data)
             .map_err(|e| anyhow!("Failed to serialize data to JSON, with error: {}", e))?;
@@ -44,7 +45,8 @@ impl IntentClient {
             {
                 "jsonrpc": "2.0",
                 "id": self.next_request_id(),
-                "value": intent_data
+                "value": intent_data,
+                "method": method
             }
         );
         let response = self
@@ -53,6 +55,7 @@ impl IntentClient {
             .body(request_json.to_string())
             .send()
             .await?;
+        eprintln!("HELLO WORLD: {:?}", response);
         let value: Value = response.json().await?;
         let json_value = jsonrpc_value(value)?;
         match serde_json::from_value(json_value) {

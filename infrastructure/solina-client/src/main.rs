@@ -6,7 +6,7 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    let endpoint = Url::parse("http://localhost:8081").expect("Invalid URL");
+    let endpoint = Url::parse("http://127.0.0.1:3000").expect("Invalid URL");
 
     let mut intent_client =
         IntentClient::connect(endpoint).expect("Failed to connect client to endpoint");
@@ -22,9 +22,9 @@ async fn main() {
         if input == "exit" {
             break;
         }
-
+        eprintln!("FLAG: DEBUG {}", serde_json::to_value(message).unwrap());
         intent_client
-            .send_request::<&str, String>(message)
+            .send_request::<&str, String>(message, "store")
             .await
             .expect("Failed to send request successfully");
         input.clear();

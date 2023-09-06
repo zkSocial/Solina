@@ -153,6 +153,7 @@ impl StructuredHashInterface for Intent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::*;
 
     #[test]
     fn it_works_swap_inputs_type_encoding() {
@@ -253,5 +254,47 @@ mod tests {
                 195, 42, 99, 23, 54, 92, 247, 146, 24, 108, 207, 175, 86, 231
             ]
         );
+    }
+
+    #[test]
+    fn test_json_intent_deserialization() {
+        let mut quote_token = [0u8; 32];
+        quote_token[0] = 255;
+
+        let mut base_token = [0u8; 32];
+        base_token[0] = 64;
+
+        let intent = Intent {
+            public_key: [0u8; 32],
+            signature: Signature([0u8; 64]),
+            inputs: IntentInputs {
+                quote_amount: BigUint::from(1_000_u64),
+                quote_token,
+                base_token,
+                direction: TradeDirection::Buy,
+            },
+            constraints: IntentConstraints {
+                min_base_token_amount: BigUint::from(64_u8),
+            },
+        };
+
+        let value = serde_json::to_value(intent).unwrap();
+        let should_be_value_str = serde_json::json!(
+            {
+                "constraints": {
+                    "min_base_token_amount": [64]
+                },
+                "inputs":
+                    {
+                        "base_token": [64,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                        "direction": "Buy",
+                        "quote_amount": [1000],
+                        "quote_token": [255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                    },
+                "public_key": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                "signature": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            }
+        );
+        assert_eq!(value, should_be_value_str);
     }
 }
