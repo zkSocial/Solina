@@ -1,6 +1,7 @@
 CREATE TABLE intents
 (   
-    id                    TEXT     NOT NULL PRIMARY KEY,
+    id                    INTEGER  NOT NULL  PRIMARY KEY,
+    structured_hash       TEXT     NOT NULL,
     public_key            TEXT     NOT NULL,
     signature             TEXT     NOT NULL,
     base_token            TEXT     NOT NULL,

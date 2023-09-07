@@ -1,7 +1,8 @@
 use crate::{error::SolinaStorageError, models::Intent};
 use anyhow::{anyhow, Error};
 use diesel::{
-    sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SqliteConnection,
+    dsl::max, sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+    SqliteConnection,
 };
 use hex::encode;
 use solina::{intent, Uuid};
@@ -60,12 +61,12 @@ impl<'a> ReadWriterTransaction<'a> {
 
 impl<'a> ReadWriterTransaction<'a> {
     // ----------------------------------------------- Read methods -----------------------------------------------
-    pub fn get_intent(&mut self, id: Uuid) -> Result<Intent, SolinaStorageError> {
+    pub fn get_intent(&mut self, uuid: Uuid) -> Result<Intent, SolinaStorageError> {
         use crate::schema::intents;
 
-        let hex_id = encode(id.id);
+        let hex_structured_hash = encode(uuid.id);
         let result = intents::table
-            .filter(intents::id.eq(hex_id.clone()))
+            .filter(intents::structured_hash.eq(hex_structured_hash.clone()))
             .first(self.connection())
             .optional()
             .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
@@ -74,7 +75,7 @@ impl<'a> ReadWriterTransaction<'a> {
             Some(output) => Ok(output),
             None => Err(SolinaStorageError::StorageError(format!(
                 "Could not find stored intent with {}",
-                hex_id,
+                hex_structured_hash,
             ))),
         }
     }
@@ -87,9 +88,19 @@ impl<'a> ReadWriterTransaction<'a> {
     pub fn store_intents(&mut self, intents: &[intent::Intent]) -> Result<(), SolinaStorageError> {
         use crate::schema::intents;
 
-        let intents = intents
-            .iter()
-            .map(|i| Intent::from_intent(i))
+        let nullable_id: Option<Option<i32>> = intents::table
+            .select(max(intents::id))
+            .first(self.connection())
+            .optional()
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+        let id = nullable_id
+            .ok_or_else(|| {
+                SolinaStorageError::StorageError(String::from("Failed to retrieve table max id"))
+            })?
+            .unwrap_or(0);
+
+        let intents = (0..intents.len())
+            .map(|i| Intent::from_intent(&intents[i], (id as usize + i + 1) as i32))
             .collect::<Vec<_>>();
         diesel::insert_into(intents::table)
             .values(intents)

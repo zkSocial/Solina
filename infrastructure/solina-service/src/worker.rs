@@ -63,7 +63,7 @@ impl SolinaWorker {
         let intent_batch = self.mempool.insert(intent.clone());
         if let Some(batch) = intent_batch {
             let result: Result<(), String> = {
-                match self.storage_connection.create_read_transaction() {
+                match self.storage_connection.create_transaction() {
                     Ok(mut tx) => {
                         if let Err(e) = tx.store_intents(&batch) {
                             eprintln!(
@@ -72,13 +72,14 @@ impl SolinaWorker {
                             );
                             Err(e.to_string())
                         } else {
-                            tx.commit()
-                                .expect("Failed to commit changes to the database");
                             Ok(())
                         }
                     }
                     Err(e) => {
-                        eprintln!("Failed to get read_write transaction from database");
+                        eprintln!(
+                            "Failed to get read_write transaction from database: {}",
+                            e.to_string()
+                        );
                         Err(e.to_string())
                     }
                 };

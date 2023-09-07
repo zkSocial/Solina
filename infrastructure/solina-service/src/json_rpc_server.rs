@@ -4,11 +4,11 @@ use std::{
 };
 
 use axum::{
+    extract::FromRef,
     extract::{Extension, Json, State},
     response::IntoResponse,
     routing::post,
     Router,
-    extract::FromRef
 };
 use solina::intent::Intent;
 
@@ -23,11 +23,13 @@ pub struct AppState {
 }
 
 pub fn routes(solina_worker: SolinaWorker) -> Router {
-    let app_state = AppState { solina_worker: Arc::new(RwLock::new(solina_worker)) };
+    let app_state = AppState {
+        solina_worker: Arc::new(RwLock::new(solina_worker)),
+    };
     Router::new()
-    .route("/", post(json_rpc_handler))
-    .route("/intents", post(json_rpc_handler))
-    .with_state(app_state)
+        .route("/", post(json_rpc_handler))
+        .route("/intents", post(json_rpc_handler))
+        .with_state(app_state)
 }
 
 pub async fn run_json_rpc(
