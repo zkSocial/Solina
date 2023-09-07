@@ -22,7 +22,7 @@ impl TradeDirection {
         if value {
             return Self::Sell;
         }
-        return Self::Buy;
+        Self::Buy
     }
 }
 
@@ -45,10 +45,10 @@ impl StructuredHashInterface for IntentInputs {
             .to_string()
     }
     fn data_encode(&self) -> Vec<u8> {
-        let quote_token_hash = keccak(&self.quote_token).to_fixed_bytes();
-        let base_token_hash = keccak(&self.base_token).to_fixed_bytes();
-        let quote_amount_hash = keccak(&self.quote_amount.to_bytes_be()).to_fixed_bytes();
-        let direction = keccak(&[self.direction as u8]).to_fixed_bytes();
+        let quote_token_hash = keccak(self.quote_token).to_fixed_bytes();
+        let base_token_hash = keccak(self.base_token).to_fixed_bytes();
+        let quote_amount_hash = keccak(self.quote_amount.to_bytes_be()).to_fixed_bytes();
+        let direction = keccak([self.direction as u8]).to_fixed_bytes();
 
         [
             quote_token_hash,
@@ -87,7 +87,7 @@ impl StructuredHashInterface for IntentConstraints {
         "IntentConstraints(BigUint min_base_token_amount)".to_string()
     }
     fn data_encode(&self) -> Vec<u8> {
-        keccak(&self.min_base_token_amount.to_bytes_be())
+        keccak(self.min_base_token_amount.to_bytes_be())
             .as_fixed_bytes()
             .to_vec()
     }

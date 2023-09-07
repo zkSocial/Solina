@@ -4,6 +4,7 @@ use crate::{
     types::{IntentRequest, IntentResponse},
 };
 use hex::encode;
+use log::{error, info};
 use solina::{intent::Intent, structured_hash::StructuredHashInterface};
 use storage_sqlite::SolinaStorage;
 
@@ -27,16 +28,31 @@ impl SolinaWorker {
         &mut self,
         intent_request: IntentRequest,
     ) -> Result<IntentResponse> {
-        let intent: Intent = serde_json::from_value(intent_request.intent_json)
-            .map_err(|_| Error::InvalidRequest)?;
+        let intent: Intent = serde_json::from_value(intent_request.intent_json).map_err(|e| {
+            error!(
+                "Failed to deserialize intent request to an Intent, with error: {:?}",
+                e
+            );
+            Error::InvalidRequest
+        })?;
         let intent_structured_hash = intent.structured_hash();
-        let intent_batch = self.mempool.insert(intent.clone());
+        info!(
+            "Requested intent has structured hash: {}",
+            encode(intent_structured_hash)
+        );
+        let intent_batch = self.mempool.insert(intent);
         if let Some(batch) = intent_batch {
-            let mut tx = self
-                .storage_connection
-                .create_transaction()
-                .map_err(|_| Error::InternalError)?;
-            tx.store_intents(&batch).map_err(|_| Error::InternalError)?;
+            let mut tx = self.storage_connection.create_transaction().map_err(|e| {
+                error!(
+                    "Failed to create transaction on the database, with error: {:?}",
+                    e
+                );
+                Error::InternalError
+            })?;
+            tx.store_intents(&batch).map_err(|e| {
+                error!("Failed to store batch of intents, with error: {:?}", e);
+                Error::InternalError
+            })?;
         }
         Ok(IntentResponse {
             intent_id: Some(self.update_current_id()),

@@ -3,8 +3,7 @@ use diesel::{
     dsl::max, sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
     SqliteConnection,
 };
-use hex::encode;
-use solina::{intent, Uuid};
+use solina::intent;
 use std::sync::MutexGuard;
 
 // Sqlite does not make a distinction between read and write transactions.
@@ -33,7 +32,7 @@ impl<'a> ReadWriterTransaction<'a> {
             .map_err(|e| {
                 SolinaStorageError::StorageError(format!(
                     "Failed to commit transaction, with error: {}",
-                    e.to_string()
+                    e
                 ))
             })?;
         self.is_done = true;
@@ -46,7 +45,7 @@ impl<'a> ReadWriterTransaction<'a> {
             .map_err(|e| {
                 SolinaStorageError::StorageError(format!(
                     "Failed to rollback transaction, with error: {}",
-                    e.to_string()
+                    e
                 ))
             })?;
         self.is_done = true;

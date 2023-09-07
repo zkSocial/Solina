@@ -16,3 +16,5 @@ serde_json = "1.0.105"
 storage-sqlite = { path = "../storage_sqlite/" }
 hex = "0.4.3"
 strum_macros = "0.25.2"
+log = "0.4.20"
+env_logger = "0.10.0"
