@@ -1,6 +1,7 @@
 table! {
     intents (id) {
-        id -> Text,
+        id -> diesel::sql_types::Integer,
+        structured_hash -> Text,
         public_key -> Text,
         signature -> Text,
         base_token -> Text,

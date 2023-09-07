@@ -52,11 +52,8 @@ impl SolinaStorage {
 }
 
 impl SolinaStorage {
-    pub fn create_read_transaction(&self) -> Result<ReadWriterTransaction<'_>, SolinaStorageError> {
-        let mut lock = self.connection.lock().unwrap();
-        sql_query("BEGIN")
-            .execute(&mut *lock)
-            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+    pub fn create_transaction(&self) -> Result<ReadWriterTransaction<'_>, SolinaStorageError> {
+        let lock = self.connection.lock().unwrap();
         Ok(ReadWriterTransaction::new(lock))
     }
 }
