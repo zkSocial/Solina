@@ -5,6 +5,7 @@ use storage_sqlite::SolinaStorage;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let addr: SocketAddr = "127.0.0.1:3000".parse().unwrap();
 
     let storage = SolinaStorage::try_open(
