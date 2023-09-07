@@ -45,7 +45,7 @@ impl IntentClient {
             {
                 "jsonrpc": "2.0",
                 "id": self.next_request_id(),
-                "value": intent_data,
+                "params": intent_data,
                 "method": method
             }
         );

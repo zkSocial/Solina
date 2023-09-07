@@ -53,7 +53,7 @@ impl SolinaStorage {
 
 impl SolinaStorage {
     pub fn create_transaction(&self) -> Result<ReadWriterTransaction<'_>, SolinaStorageError> {
-        let mut lock = self.connection.lock().unwrap();
+        let lock = self.connection.lock().unwrap();
         Ok(ReadWriterTransaction::new(lock))
     }
 }

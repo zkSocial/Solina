@@ -1,19 +1,20 @@
+use log::{error, info};
 use std::{
     net::SocketAddr,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
+
+use crate::error::{Error, Result};
 
 use axum::{
     extract::FromRef,
-    extract::{Extension, Json, State},
-    response::IntoResponse,
+    extract::{Json, State},
     routing::post,
     Router,
 };
-use solina::intent::Intent;
 
 use crate::{
-    types::{IntentJrpcRequest, IntentJrpcResponse},
+    types::{IntentRequest, IntentResponse},
     worker::SolinaWorker,
 };
 
@@ -32,42 +33,37 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
         .with_state(app_state)
 }
 
-pub async fn run_json_rpc(
-    socket_address: SocketAddr,
-    solina_worker: SolinaWorker,
-) -> Result<(), anyhow::Error> {
-    let server = axum::Server::try_bind(&socket_address).or_else(|_| {
-        eprintln!("Failed to bind to socket address: {}", socket_address);
-        axum::Server::try_bind(&"127.0.0.1:0".parse().unwrap())
-    })?;
+pub async fn run_json_rpc(socket_address: SocketAddr, solina_worker: SolinaWorker) -> Result<()> {
+    let mut bind = true;
+    let server = axum::Server::try_bind(&socket_address)
+        .or_else(|_| {
+            error!("Failed to bind to socket address: {}", socket_address);
+            bind = false;
+            axum::Server::try_bind(&"127.0.0.1:0".parse().unwrap())
+        })
+        .map_err(|_| Error::FailedToStartService)?;
     let server = server.serve(routes(solina_worker).into_make_service());
-    println!("Server is set up !");
 
-    server.await?;
+    let bind_addr = if bind {
+        socket_address
+    } else {
+        "127.0.0.1:0".parse().unwrap()
+    };
+    info!("Started JSON RPC service at {:?}", bind_addr);
+
+    server.await.map_err(|_| Error::FailedToStartService)?;
 
     Ok(())
 }
 
 async fn json_rpc_handler(
     State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
-    Json(request): Json<IntentJrpcRequest>,
-) -> Json<IntentJrpcResponse> {
-    println!("New received request: {:?}", request);
-    match request.method.as_str() {
-        "store" => {
-            let response = solina_worker
-                .write()
-                .expect("Failed to acquire lock")
-                .process_intent_request(request);
-            return Json(response);
-        }
-        _ => {
-            return Json(IntentJrpcResponse {
-                error: Some(String::from("Invalid request method")),
-                jsonrpc: "2.0".to_string(),
-                id: request.id,
-                result: None,
-            });
-        }
-    }
+    Json(request): Json<IntentRequest>,
+) -> Json<Result<IntentResponse>> {
+    info!("New received request: {:?}", request);
+    let response = solina_worker
+        .write()
+        .expect("Failed to acquire lock")
+        .process_intent_request(request);
+    Json(response)
 }

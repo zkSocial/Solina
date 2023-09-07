@@ -1,11 +1,9 @@
 use crate::{error::SolinaStorageError, models::Intent};
-use anyhow::{anyhow, Error};
 use diesel::{
     dsl::max, sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
     SqliteConnection,
 };
-use hex::encode;
-use solina::{intent, Uuid};
+use solina::intent;
 use std::sync::MutexGuard;
 
 // Sqlite does not make a distinction between read and write transactions.
@@ -24,10 +22,6 @@ impl<'a> ReadWriterTransaction<'a> {
         }
     }
 
-    pub(super) fn is_done(&self) -> bool {
-        self.is_done
-    }
-
     pub fn connection(&mut self) -> &mut SqliteConnection {
         &mut self.connection
     }
@@ -38,7 +32,7 @@ impl<'a> ReadWriterTransaction<'a> {
             .map_err(|e| {
                 SolinaStorageError::StorageError(format!(
                     "Failed to commit transaction, with error: {}",
-                    e.to_string()
+                    e
                 ))
             })?;
         self.is_done = true;
@@ -51,7 +45,7 @@ impl<'a> ReadWriterTransaction<'a> {
             .map_err(|e| {
                 SolinaStorageError::StorageError(format!(
                     "Failed to rollback transaction, with error: {}",
-                    e.to_string()
+                    e
                 ))
             })?;
         self.is_done = true;
@@ -61,12 +55,11 @@ impl<'a> ReadWriterTransaction<'a> {
 
 impl<'a> ReadWriterTransaction<'a> {
     // ----------------------------------------------- Read methods -----------------------------------------------
-    pub fn get_intent(&mut self, uuid: Uuid) -> Result<Intent, SolinaStorageError> {
+    pub fn get_intent(&mut self, id: i32) -> Result<Intent, SolinaStorageError> {
         use crate::schema::intents;
 
-        let hex_structured_hash = encode(uuid.id);
         let result = intents::table
-            .filter(intents::structured_hash.eq(hex_structured_hash.clone()))
+            .filter(intents::id.eq(id))
             .first(self.connection())
             .optional()
             .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
@@ -74,8 +67,8 @@ impl<'a> ReadWriterTransaction<'a> {
         match result {
             Some(output) => Ok(output),
             None => Err(SolinaStorageError::StorageError(format!(
-                "Could not find stored intent with {}",
-                hex_structured_hash,
+                "Could not find stored intent with id: {}",
+                id,
             ))),
         }
     }

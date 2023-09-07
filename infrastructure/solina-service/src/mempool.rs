@@ -2,6 +2,7 @@ use solina::intent::Intent;
 
 const MEMPOOL_CAPACITY: usize = 5;
 
+#[derive(Default)]
 pub struct SolinaMempool {
     // TODO: other data structures might be more suitable for our purposes
     mempool_data: Vec<Intent>,
