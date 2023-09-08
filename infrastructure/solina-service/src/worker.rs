@@ -1,4 +1,7 @@
-use crate::error::{Error, Result};
+use crate::{
+    config::SolinaConfig,
+    error::{Error, Result},
+};
 use crate::{
     mempool::SolinaMempool,
     types::{IntentRequest, IntentResponse},
@@ -12,16 +15,26 @@ pub struct SolinaWorker {
     mempool: SolinaMempool,
     storage_connection: SolinaStorage,
     current_intent_id: i64,
+    config: SolinaConfig,
 }
 
-// TODO: add logic for shutdown signal
 impl SolinaWorker {
-    pub fn new(storage_connection: SolinaStorage) -> Self {
-        Self {
-            mempool: SolinaMempool::new(),
+    pub fn new(config: SolinaConfig) -> Result<Self> {
+        let storage_connection =
+            SolinaStorage::try_open(config.storage_file_path()).map_err(|e| {
+                error!("Failed to start a storage connection, with error: {}", e);
+                Error::InternalError
+            })?;
+        storage_connection.run_migrations().map_err(|e| {
+            error!("Failed to run migrations, with error: {}", e);
+            Error::InternalError
+        })?;
+        Ok(Self {
+            mempool: SolinaMempool::new(config.mempool_capacity()),
             storage_connection,
             current_intent_id: 0,
-        }
+            config,
+        })
     }
 
     pub fn process_intent_request(
