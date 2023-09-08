@@ -98,7 +98,7 @@ impl<'a> ReadWriterTransaction<'a> {
 
         let intents = intents
             .iter()
-            .map(|(id, intent)| Intent::from_intent(&intent, *id as i32 + 1))
+            .map(|(id, intent)| Intent::from_intent(intent, *id as i32 + 1))
             .collect::<Vec<_>>();
         diesel::insert_into(intents::table)
             .values(intents)

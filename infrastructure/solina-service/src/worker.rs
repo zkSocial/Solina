@@ -4,7 +4,10 @@ use crate::{
 };
 use crate::{
     mempool::SolinaMempool,
-    types::{GetIntentRequest, GetIntentResponse, StoreIntentRequest, StoreIntentResponse},
+    types::{
+        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
+        StoreIntentRequest, StoreIntentResponse,
+    },
 };
 use hex::encode;
 use log::{error, info};
@@ -126,7 +129,7 @@ impl SolinaWorker {
             .find(|(id, _)| *id == intent_id as i64)
             .map(|(_, int)| int)
         {
-            let intent_json = serde_json::to_value(&intent).map_err(|e| {
+            let intent_json = serde_json::to_value(intent).map_err(|e| {
                 error!("Failed to serialize intent data to JSON, with error: {}", e);
                 Error::InternalError
             })?;
@@ -156,7 +159,7 @@ impl SolinaWorker {
                 Error::InternalError
             })?;
 
-        let intent_json = serde_json::to_value(&intent).map_err(|e| {
+        let intent_json = serde_json::to_value(intent).map_err(|e| {
             error!("Failed to serialize intent data to JSON, with error: {}", e);
             Error::InternalError
         })?;
@@ -164,6 +167,68 @@ impl SolinaWorker {
         Ok(GetIntentResponse {
             intent_json,
             message: String::from("GET intent successfully"),
+            is_success: true,
+        })
+    }
+
+    pub fn process_get_batch_intents_request(
+        &self,
+        get_intent_request: GetBatchIntentsRequest,
+    ) -> Result<GetBatchIntentsResponse> {
+        let mut intent_ids = get_intent_request.ids;
+        // we first verify if the intent is still in the mempool
+        let batch_intents = self
+            .mempool
+            .mempool_data
+            .iter()
+            .filter_map(|(id, intent)| {
+                if intent_ids.contains(&(*id as i32)) {
+                    intent_ids.retain(|&i| i != *id as i32);
+                    Some(intent.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Intent>>();
+
+        if intent_ids.is_empty() {
+            return Ok(GetBatchIntentsResponse {
+                batch_intents_json: batch_intents
+                    .iter()
+                    .map(|intent| {
+                        serde_json::to_value(intent).expect("Failed to deserialize intent")
+                    })
+                    .collect(),
+                message: String::from("GET batch intents successfully"),
+                is_success: true,
+            });
+        }
+
+        // let missing_intent_ids = intent_ids.iter().filter(|id| );
+
+        let mut tx = self.storage_connection.create_transaction().map_err(|e| {
+            error!(
+                "Failed to store intent batch to database, with error: {}",
+                e
+            );
+            Error::InternalError
+        })?;
+
+        let batch_intents = tx.get_intents_batch(&intent_ids).map_err(|e| {
+            error!("Failed to store batch of intents, with error: {:?}", e);
+            Error::InternalError
+        })?;
+        let batch_intents_json = batch_intents
+            .iter()
+            .map(|intent| {
+                let intent = intent.to_intent().expect("Failed to convert intent");
+                serde_json::to_value(intent).expect("Failed to deserialize intent")
+            })
+            .collect();
+
+        Ok(GetBatchIntentsResponse {
+            batch_intents_json,
+            message: String::from("GET batch intents successfully"),
             is_success: true,
         })
     }

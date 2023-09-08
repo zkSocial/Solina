@@ -11,7 +11,10 @@ use axum::{
 };
 
 use crate::{
-    types::{GetIntentRequest, GetIntentResponse, StoreIntentRequest, StoreIntentResponse},
+    types::{
+        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
+        StoreIntentRequest, StoreIntentResponse,
+    },
     worker::SolinaWorker,
 };
 
@@ -27,6 +30,7 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
     Router::new()
         .route("/store_intent", post(store_intent_handler))
         .route("/get_intent", get(get_intent_handler))
+        .route("/get_batch_intents", get(get_batch_intents_handler))
         .with_state(app_state)
 }
 
@@ -75,5 +79,20 @@ async fn get_intent_handler(
         .write()
         .expect("Failed to acquire lock")
         .process_get_intent_request(request);
+    Json(response)
+}
+
+async fn get_batch_intents_handler(
+    State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
+    Json(request): Json<GetBatchIntentsRequest>,
+) -> Json<Result<GetBatchIntentsResponse>> {
+    info!(
+        "New GET request for batch intents with ids: {:?}",
+        request.ids
+    );
+    let response = solina_worker
+        .write()
+        .expect("Failed to acquire lock")
+        .process_get_batch_intents_request(request);
     Json(response)
 }

@@ -52,21 +52,21 @@ impl Intent {
         }
     }
 
-    pub fn to_intent(self) -> Result<SolinaIntent, SolinaStorageError> {
+    pub fn to_intent(&self) -> Result<SolinaIntent, SolinaStorageError> {
         let mut public_key = [0_u8; 32];
-        let public_key_buffer = decode(self.public_key)
+        let public_key_buffer = decode(&self.public_key)
             .map_err(|e| SolinaStorageError::ConversionError(e.to_string()))?;
         public_key.copy_from_slice(&public_key_buffer);
         let mut signature = [0_u8; 64];
-        let signature_buffer = decode(self.signature)
+        let signature_buffer = decode(&self.signature)
             .map_err(|e| SolinaStorageError::ConversionError(e.to_string()))?;
         signature.copy_from_slice(&signature_buffer);
         let mut base_token = [0_u8; 32];
-        let base_token_buffer = decode(self.base_token)
+        let base_token_buffer = decode(&self.base_token)
             .map_err(|e| SolinaStorageError::ConversionError(e.to_string()))?;
         base_token.copy_from_slice(&base_token_buffer);
         let mut quote_token = [0_u8; 32];
-        let quote_token_buffer = decode(self.quote_token)
+        let quote_token_buffer = decode(&self.quote_token)
             .map_err(|e| SolinaStorageError::ConversionError(e.to_string()))?;
         quote_token.copy_from_slice(&quote_token_buffer);
         let min_base_token_amount = BigUint::from(self.min_base_token_amount as u64);

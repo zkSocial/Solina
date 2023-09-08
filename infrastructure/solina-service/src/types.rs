@@ -23,3 +23,15 @@ pub struct GetIntentResponse {
     pub(crate) is_success: bool,
     pub(crate) message: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetBatchIntentsRequest {
+    pub(crate) ids: Vec<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetBatchIntentsResponse {
+    pub(crate) batch_intents_json: Vec<serde_json::Value>,
+    pub(crate) is_success: bool,
+    pub(crate) message: String,
+}

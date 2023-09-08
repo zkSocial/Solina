@@ -31,7 +31,7 @@ impl SolinaConfig {
     }
 
     pub fn socket_address(&self) -> SocketAddr {
-        self.socket_address.clone()
+        self.socket_address
     }
 }
 
