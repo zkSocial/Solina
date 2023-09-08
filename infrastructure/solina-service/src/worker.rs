@@ -37,7 +37,7 @@ impl SolinaWorker {
         })
     }
 
-    pub fn process_intent_request(
+    pub fn process_store_intent_request(
         &mut self,
         intent_request: IntentRequest,
     ) -> Result<IntentResponse> {

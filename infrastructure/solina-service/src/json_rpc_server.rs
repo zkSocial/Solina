@@ -1,6 +1,5 @@
 use log::{error, info};
 use std::{
-    net::SocketAddr,
     sync::{Arc, RwLock},
 };
 
@@ -65,6 +64,6 @@ async fn json_rpc_handler(
     let response = solina_worker
         .write()
         .expect("Failed to acquire lock")
-        .process_intent_request(request);
+        .process_store_intent_request(request);
     Json(response)
 }

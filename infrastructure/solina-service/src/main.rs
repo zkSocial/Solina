@@ -1,6 +1,5 @@
 use solina_service::{config::SolinaConfig, error::Result};
 use solina_service::{json_rpc_server::run_json_rpc, worker::SolinaWorker};
-use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<()> {
