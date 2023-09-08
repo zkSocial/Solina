@@ -1,7 +1,6 @@
 use crate::{error::SolinaStorageError, models::Intent};
 use diesel::{
-    dsl::max, sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
-    SqliteConnection,
+    sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SqliteConnection,
 };
 use solina::intent;
 use std::sync::MutexGuard;
@@ -91,22 +90,15 @@ impl<'a> ReadWriterTransaction<'a> {
     }
 
     // ----------------------------------------------- Write methods -----------------------------------------------
-    pub fn store_intents(&mut self, intents: &[intent::Intent]) -> Result<(), SolinaStorageError> {
+    pub fn store_intents(
+        &mut self,
+        intents: &[(i64, intent::Intent)],
+    ) -> Result<(), SolinaStorageError> {
         use crate::schema::intents;
 
-        let nullable_id: Option<Option<i32>> = intents::table
-            .select(max(intents::id))
-            .first(self.connection())
-            .optional()
-            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
-        let id = nullable_id
-            .ok_or_else(|| {
-                SolinaStorageError::StorageError(String::from("Failed to retrieve table max id"))
-            })?
-            .unwrap_or(0);
-
-        let intents = (0..intents.len())
-            .map(|i| Intent::from_intent(&intents[i], (id as usize + i + 1) as i32))
+        let intents = intents
+            .iter()
+            .map(|(id, intent)| Intent::from_intent(&intent, *id as i32 + 1))
             .collect::<Vec<_>>();
         diesel::insert_into(intents::table)
             .values(intents)

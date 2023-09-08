@@ -1,19 +1,17 @@
 use log::{error, info};
-use std::{
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use crate::error::{Error, Result};
 
 use axum::{
     extract::FromRef,
     extract::{Json, State},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 
 use crate::{
-    types::{IntentRequest, IntentResponse},
+    types::{GetIntentRequest, GetIntentResponse, StoreIntentRequest, StoreIntentResponse},
     worker::SolinaWorker,
 };
 
@@ -27,8 +25,8 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
         solina_worker: Arc::new(RwLock::new(solina_worker)),
     };
     Router::new()
-        .route("/", post(json_rpc_handler))
-        .route("/intents", post(json_rpc_handler))
+        .route("/store_intent", post(store_intent_handler))
+        .route("/get_intent", get(get_intent_handler))
         .with_state(app_state)
 }
 
@@ -56,14 +54,26 @@ pub async fn run_json_rpc(solina_worker: SolinaWorker) -> Result<()> {
     Ok(())
 }
 
-async fn json_rpc_handler(
+async fn store_intent_handler(
     State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
-    Json(request): Json<IntentRequest>,
-) -> Json<Result<IntentResponse>> {
-    info!("New received request: {:?}", request);
+    Json(request): Json<StoreIntentRequest>,
+) -> Json<Result<StoreIntentResponse>> {
+    info!("New POST request to submit intent: {:?}", request);
     let response = solina_worker
         .write()
         .expect("Failed to acquire lock")
         .process_store_intent_request(request);
+    Json(response)
+}
+
+async fn get_intent_handler(
+    State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
+    Json(request): Json<GetIntentRequest>,
+) -> Json<Result<GetIntentResponse>> {
+    info!("New GET request for intent with id: {}", request.id);
+    let response = solina_worker
+        .write()
+        .expect("Failed to acquire lock")
+        .process_get_intent_request(request);
     Json(response)
 }
