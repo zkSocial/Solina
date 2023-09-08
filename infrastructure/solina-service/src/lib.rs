@@ -1,3 +1,4 @@
+pub mod config;
 pub mod error;
 pub mod json_rpc_server;
 pub mod mempool;
