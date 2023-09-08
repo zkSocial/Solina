@@ -2521,6 +2521,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "hex",
+ "num-bigint 0.4.4",
  "num-traits",
  "solina",
  "thiserror",
