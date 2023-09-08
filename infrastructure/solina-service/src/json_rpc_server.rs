@@ -66,7 +66,7 @@ async fn store_intent_handler(
     let response = solina_worker
         .write()
         .expect("Failed to acquire lock")
-        .process_store_intent_request(request);
+        .handle_post_store_intent_request(request);
     Json(response)
 }
 
@@ -78,7 +78,7 @@ async fn get_intent_handler(
     let response = solina_worker
         .write()
         .expect("Failed to acquire lock")
-        .process_get_intent_request(request);
+        .handle_get_intent_request(request);
     Json(response)
 }
 
@@ -93,6 +93,6 @@ async fn get_batch_intents_handler(
     let response = solina_worker
         .write()
         .expect("Failed to acquire lock")
-        .process_get_batch_intents_request(request);
+        .handle_get_batch_intents_request(request);
     Json(response)
 }

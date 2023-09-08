@@ -58,7 +58,22 @@ impl SolinaWorker {
         self.mempool.rollback().map(|(_, i)| i)
     }
 
-    pub fn process_store_intent_request(
+    pub fn handle_post_store_intent_request(
+        &mut self,
+        store_intent_request: StoreIntentRequest,
+    ) -> Result<StoreIntentResponse> {
+        let result = self.process_store_intent_request(store_intent_request);
+        match result {
+            Ok(response) => Ok(response),
+            Err(e) => {
+                // if we get an error, we need to rollback the internal state
+                self.rollback();
+                Err(e)
+            }
+        }
+    }
+
+    fn process_store_intent_request(
         &mut self,
         store_intent_request: StoreIntentRequest,
     ) -> Result<StoreIntentResponse> {
@@ -92,9 +107,6 @@ impl SolinaWorker {
                 "Failed to store intent batch to database, with error: {}",
                 e
             );
-            // update current inner state of self.
-            self.mempool.rollback();
-            self.current_intent_id -= 1;
             Error::InternalError
         })?;
 
@@ -103,9 +115,6 @@ impl SolinaWorker {
                 "Failed to store intent batch to database, with error: {}",
                 e
             );
-            // update current inner state of self.
-            self.mempool.rollback();
-            self.current_intent_id -= 1;
             Error::InternalError
         })?;
 
@@ -116,7 +125,7 @@ impl SolinaWorker {
         })
     }
 
-    pub fn process_get_intent_request(
+    pub fn handle_get_intent_request(
         &self,
         get_intent_request: GetIntentRequest,
     ) -> Result<GetIntentResponse> {
@@ -171,7 +180,7 @@ impl SolinaWorker {
         })
     }
 
-    pub fn process_get_batch_intents_request(
+    pub fn handle_get_batch_intents_request(
         &self,
         get_intent_request: GetBatchIntentsRequest,
     ) -> Result<GetBatchIntentsResponse> {
