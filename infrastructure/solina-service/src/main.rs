@@ -9,7 +9,7 @@ async fn main() -> Result<()> {
     let solina_config = SolinaConfig::default();
 
     let solina_worker = SolinaWorker::new(solina_config).expect("Failed to start a Solina worker");
-    run_json_rpc(addr, solina_worker).await?;
+    run_json_rpc(solina_worker).await?;
 
     Ok(())
 }

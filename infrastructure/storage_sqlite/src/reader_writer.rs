@@ -73,8 +73,21 @@ impl<'a> ReadWriterTransaction<'a> {
         }
     }
 
-    pub fn get_intents_batch() -> Option<intent::Intent> {
-        None
+    pub fn get_intents_batch(&mut self, ids: &[i32]) -> Result<Vec<Intent>, SolinaStorageError> {
+        use crate::schema::intents;
+
+        let results = intents::table
+            .filter(intents::id.eq_any(ids))
+            .load::<Intent>(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        if results.is_empty() {
+            Err(SolinaStorageError::StorageError(
+                "Could not find stored intents for the provided ids".to_string(),
+            ))
+        } else {
+            Ok(results)
+        }
     }
 
     // ----------------------------------------------- Write methods -----------------------------------------------

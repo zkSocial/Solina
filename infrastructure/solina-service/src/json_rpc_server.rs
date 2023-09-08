@@ -33,8 +33,9 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
         .with_state(app_state)
 }
 
-pub async fn run_json_rpc(socket_address: SocketAddr, solina_worker: SolinaWorker) -> Result<()> {
+pub async fn run_json_rpc(solina_worker: SolinaWorker) -> Result<()> {
     let mut bind = true;
+    let socket_address = solina_worker.config().socket_address();
     let server = axum::Server::try_bind(&socket_address)
         .or_else(|_| {
             error!("Failed to bind to socket address: {}", socket_address);

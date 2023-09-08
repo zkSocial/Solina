@@ -79,3 +79,9 @@ impl SolinaWorker {
         self.current_intent_id
     }
 }
+
+impl SolinaWorker {
+    pub fn config(&self) -> &SolinaConfig {
+        &self.config
+    }
+}
