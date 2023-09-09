@@ -11,6 +11,7 @@ use axum::{
 };
 
 use crate::{
+    auth_middleware::EthereumAuthMiddlewareLayer,
     types::{
         GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
         StoreIntentRequest, StoreIntentResponse,
@@ -23,12 +24,21 @@ pub struct AppState {
     solina_worker: Arc<RwLock<SolinaWorker>>,
 }
 
+fn store_intent_with_auth_route() -> Router {
+    Router::new()
+        .route("/store_intent", post(store_intent_handler))
+        .layer(EthereumAuthMiddlewareLayer {})
+}
+
 pub fn routes(solina_worker: SolinaWorker) -> Router {
     let app_state = AppState {
         solina_worker: Arc::new(RwLock::new(solina_worker)),
     };
+
+    let store_intent_with_auth_route = store_intent_with_auth_route();
+
     Router::new()
-        .route("/store_intent", post(store_intent_handler))
+        .nest(store_intent_with_auth_route)
         .route("/get_intent", get(get_intent_handler))
         .route("/get_batch_intents", get(get_batch_intents_handler))
         .with_state(app_state)
