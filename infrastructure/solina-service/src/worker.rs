@@ -50,6 +50,10 @@ impl SolinaWorker {
     pub fn config(&self) -> &SolinaConfig {
         &self.config
     }
+
+    pub fn storage_connection(&mut self) -> &mut SolinaStorage {
+        &mut self.storage_connection
+    }
 }
 
 impl SolinaWorker {

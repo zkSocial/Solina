@@ -95,12 +95,12 @@ impl<'a> ReadWriterTransaction<'a> {
 
     pub fn get_current_auth_credential(
         &mut self,
-        address: String,
+        address: &String,
     ) -> Result<AuthCredentials, SolinaStorageError> {
         use crate::schema::auth_credentials;
 
         let credential = auth_credentials::table
-            .filter(auth_credentials::address.eq(&address))
+            .filter(auth_credentials::address.eq(address))
             .order(auth_credentials::id.desc())
             .first(self.connection())
             .optional()

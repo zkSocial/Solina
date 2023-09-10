@@ -21,7 +21,7 @@ use crate::{
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
-    solina_worker: Arc<RwLock<SolinaWorker>>,
+    pub(crate) solina_worker: Arc<RwLock<SolinaWorker>>,
 }
 
 // fn store_intent_with_auth_route(app_state: AppState) -> Router {
@@ -40,7 +40,9 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
 
     Router::new()
         .route("/store_intent", post(store_intent_handler))
-        .layer(EthereumAuthMiddlewareLayer {})
+        .layer(EthereumAuthMiddlewareLayer {
+            app_state: app_state.clone(),
+        })
         .route("/get_intent", get(get_intent_handler))
         .route("/get_batch_intents", get(get_batch_intents_handler))
         .with_state(app_state)

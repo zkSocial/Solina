@@ -2,16 +2,14 @@ use axum::Json;
 use ethers::prelude::*;
 use ethers::utils::keccak256;
 use log::{error, info};
-use once_cell::sync::Lazy;
 use rand::Rng;
 use serde_json::{json, Value};
 use std::{collections::HashMap, str::FromStr, sync::Mutex};
 
-use crate::error::{Error, Result};
-
-// TODO: This is a simple in-memory store for the challenges. Add it to the database instead
-pub(crate) static CHALLENGES: Lazy<Mutex<HashMap<String, String>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+use crate::{
+    error::{Error, Result},
+    json_rpc_server::AppState,
+};
 
 pub(crate) fn generate_challenge() -> String {
     let challenge: String = rand::thread_rng()
@@ -20,36 +18,43 @@ pub(crate) fn generate_challenge() -> String {
         .map(char::from)
         .collect();
 
-    let mut challenges = CHALLENGES.lock().unwrap();
-    challenges.insert("user_challenge".to_string(), challenge.clone());
-
     challenge
 }
 
-pub(crate) fn verify_signature(Json(body): &Json<Value>) -> Result<Json<Value>> {
-    let signature = body.get("signature").ok_or(Error::InvalidRequest)?;
-    let signature = signature
-        .as_str()
-        .expect("Failed to extract signature from request");
-    let public_key = body.get("public_key").ok_or(Error::InvalidRequest)?;
-    let public_key = public_key
-        .as_str()
-        .expect("Failed to extract public key from request");
+pub(crate) fn extract_address(value: &Value) -> Result<String> {
+    let address = value.get("address").ok_or(Error::InvalidRequest)?;
+    let address = address.as_str().ok_or({
+        error!("Failed to extract address from request, with error");
+        Error::InvalidRequest
+    })?;
+    Ok(address.to_string())
+}
 
+pub(crate) fn extract_signature(value: &Value) -> Result<String> {
+    let signature = value.get("signature").ok_or(Error::InvalidRequest)?;
+    let signature = signature.as_str().ok_or({
+        error!("Failed to extract signature from request");
+        Error::InvalidRequest
+    })?;
+    Ok(signature.to_string())
+}
+
+pub(crate) fn verify_signature(
+    address: String,
+    challenge: String,
+    signature: String,
+) -> Result<Json<Value>> {
     // TODO: to be refactored (we will need the worker as state). We are currently
     // querying the challenge store via the public key, we should have an id as well
     // to query the latest available challenge for the given public key
-    let challenges = CHALLENGES
-        .lock()
-        .expect("Failed to acquire challenges lock");
-    let challenge = challenges.get(public_key).cloned().unwrap_or_default();
+
     let challenge = "vhbo85kmcqGMjATMiktMPbweQN8q7k59".to_string();
 
     info!("The challenge is: {}", challenge);
 
-    let address: Address = Address::from_str(&public_key).expect(&format!(
+    let address: Address = Address::from_str(&address).expect(&format!(
         "Failed to extract Address from public key, {}",
-        public_key
+        address
     ));
     info!("The address is: {:?}", address);
     info!("The signature is: {:?}", Signature::from_str(&signature));
