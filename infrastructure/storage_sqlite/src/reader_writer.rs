@@ -141,13 +141,16 @@ impl<'a> ReadWriterTransaction<'a> {
     ) -> Result<(), SolinaStorageError> {
         use crate::schema::auth_credentials;
 
-        diesel::insert_into(auth_credentials::table).values(NewAuthCredentials {
-            address,
-            challenge,
-            is_auth: false,
-            is_valid: true,
-            created_at: Utc::now().naive_utc(),
-        });
+        diesel::insert_into(auth_credentials::table)
+            .values(NewAuthCredentials {
+                address,
+                challenge,
+                is_auth: false,
+                is_valid: true,
+                created_at: Utc::now().naive_utc(),
+            })
+            .execute(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()));
 
         Ok(())
     }

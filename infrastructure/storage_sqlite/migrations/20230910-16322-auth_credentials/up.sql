@@ -7,5 +7,3 @@ CREATE TABLE auth_credentials
     is_valid   BOOL     NOT NULL,
     created_at DATETIME NOT NULL
 );
-
-CREATE INDEX public_key_base_quote_token ON intents (public_key, base_token, quote_token);

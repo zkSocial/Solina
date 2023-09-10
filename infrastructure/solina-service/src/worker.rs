@@ -1,13 +1,15 @@
 use crate::{
-    config::SolinaConfig,
-    error::{Error, Result},
-};
-use crate::{
+    auth_challenge::generate_challenge,
     mempool::SolinaMempool,
     types::{
-        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
-        StoreIntentRequest, StoreIntentResponse,
+        GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
+        StoreIntentResponse,
     },
+};
+use crate::{
+    config::SolinaConfig,
+    error::{Error, Result},
 };
 use hex::encode;
 use log::{error, info};
@@ -246,6 +248,41 @@ impl SolinaWorker {
             batch_intents_json,
             message: String::from("GET batch intents successfully"),
             is_success: true,
+        })
+    }
+
+    pub fn handle_get_auth_credentials_request(
+        &mut self,
+        request: GetAuthCredentialsRequest,
+    ) -> Result<GetAuthCredentialsResponse> {
+        let address = request.address;
+        let challenge = generate_challenge();
+
+        {
+            let mut tx = self
+                .storage_connection()
+                .create_transaction()
+                .map_err(|e| {
+                    error!(
+                        "Failed to store intent batch to database, with error: {}",
+                        e
+                    );
+                    Error::InternalError
+                })?;
+
+            tx.insert_new_credential(address, challenge.clone())
+                .map_err(|e| {
+                    error!("Failed to insert new credential to DB");
+                    Error::InternalError
+                })?;
+
+            info!("New challenge {}, stored in the database", challenge);
+        }
+
+        Ok(GetAuthCredentialsResponse {
+            challenge,
+            is_success: true,
+            message: "New challenge successfully generated".to_string(),
         })
     }
 }

@@ -1,7 +1,10 @@
 use log::{error, info};
 use std::sync::{Arc, RwLock};
 
-use crate::error::{Error, Result};
+use crate::{
+    auth_challenge::generate_challenge,
+    error::{Error, Result},
+};
 
 use axum::{
     extract::FromRef,
@@ -13,8 +16,9 @@ use axum::{
 use crate::{
     auth_middleware::EthereumAuthMiddlewareLayer,
     types::{
-        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
-        StoreIntentRequest, StoreIntentResponse,
+        GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
+        StoreIntentResponse,
     },
     worker::SolinaWorker,
 };
@@ -39,7 +43,10 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
     // let store_intent_with_auth_route = store_intent_with_auth_route(app_state.clone());
 
     Router::new()
-        .route("/store_intent", post(store_intent_handler))
+        .route(
+            "/store_intent",
+            get(get_auth_credentials_handler).post(store_intent_handler),
+        )
         .layer(EthereumAuthMiddlewareLayer {
             app_state: app_state.clone(),
         })
@@ -108,5 +115,21 @@ async fn get_batch_intents_handler(
         .write()
         .expect("Failed to acquire lock")
         .handle_get_batch_intents_request(request);
+    Json(response)
+}
+
+async fn get_auth_credentials_handler(
+    State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
+    Json(request): Json<GetAuthCredentialsRequest>,
+) -> Json<Result<GetAuthCredentialsResponse>> {
+    info!(
+        "New GET request for authentication credentials, for address: {}",
+        request.address
+    );
+    let response = solina_worker
+        .write()
+        .expect("Failed to acquire lock")
+        .handle_get_auth_credentials_request(request);
+
     Json(response)
 }

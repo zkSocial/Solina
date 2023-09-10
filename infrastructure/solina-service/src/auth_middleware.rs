@@ -43,39 +43,13 @@ where
         let app_state = self.app_state.clone();
         Box::pin(async move {
             match req.method() {
-                // Handle GET request to retrieve a challenge for user
                 &http::Method::GET => {
-                    let body = to_bytes(req.into_body())
-                        .await
-                        .expect("Failed to extract body bytes");
-                    let value: serde_json::Value = serde_json::from_slice(body.as_ref())
-                        .expect("Failed to extract JSON from request body");
-                    let address = value
-                        .get("address")
-                        .unwrap_or(value.get("public_key").expect("Failed to get public key"))
-                        .as_str()
-                        .expect("Failed to extract address")
-                        .to_string();
-                    let challenge = generate_challenge();
-                    {
-                        let mut app_state_write = app_state
-                            .solina_worker
-                            .write()
-                            .expect("Failed to write to worker");
-                        let mut tx = app_state_write
-                            .storage_connection()
-                            .create_transaction()
-                            .expect("Failed to store intent batch to database, with error: {}");
-
-                        tx.insert_new_credential(address, challenge.clone())
-                            .expect("Failed to insert new credential to DB");
-                    }
-                    let response = Response::builder()
-                        .status(200)
-                        .header("Content-Type", "text/plain")
-                        .body(boxed(Body::from(challenge)))
-                        .expect("Failed to generate for challenge response");
-                    Ok(response)
+                    let future = {
+                        let mut inner_service = inner.lock().unwrap();
+                        info!("Sending request to inner service");
+                        inner_service.call(req)
+                    };
+                    future.await
                 }
                 &http::Method::POST => {
                     let (parts, body) = req.into_parts();
@@ -98,6 +72,7 @@ where
                         tx.get_current_auth_credential(&address)
                             .expect("Failed to insert new credential to DB")
                     };
+                    info!("The current credential is: {:?}", credential);
                     let result = {
                         let now = chrono::prelude::Utc::now().naive_utc();
                         let config_auth_timeout = app_state
@@ -181,10 +156,10 @@ where
                     };
                     future.await
                 }
-                // Forward other requests to the inner service
                 _ => {
                     let future = {
                         let mut inner_service = inner.lock().unwrap();
+                        info!("Sending request to inner service");
                         inner_service.call(req)
                     };
                     future.await
@@ -218,17 +193,15 @@ mod tests {
 
     #[tokio::test]
     async fn challenge_auth() {
-        let challenge = "vhbo85kmcqGMjATMiktMPbweQN8q7k59";
-        let wallet = ethers::prelude::Wallet::new(&mut rand::thread_rng());
+        let challenge = "nCMWmFSDdHP86tfO2BeqSWWyJ0d5vTGx";
+        let wallet = ethers::prelude::Wallet::from_bytes(&[
+            11, 176, 40, 212, 120, 121, 98, 44, 125, 5, 140, 11, 173, 250, 133, 5, 23, 126, 153,
+            162, 85, 39, 195, 104, 241, 251, 117, 187, 10, 148, 7, 187,
+        ])
+        .expect("Failed to convert bytes");
 
         // Print the private key and address
-        println!("Private Key: {:?}", wallet);
-        println!("Address: {}", wallet.address());
-
-        // Hash the message using keccak256 (as per Ethereum's standard)
-        let challenge_hash = keccak256(challenge);
-
-        println!("challenge_hash: {:?}", challenge_hash);
+        println!("Address: {:?}", wallet);
 
         // Sign the message hash
         let signature = wallet.sign_message(challenge).await.unwrap();
@@ -237,7 +210,6 @@ mod tests {
 
         // Print the signature
         println!("Signature hex: {:?}", signature_hex);
-        println!("Signature: {:?}", signature);
 
         assert!(signature.verify(challenge, wallet.address()).is_ok());
     }

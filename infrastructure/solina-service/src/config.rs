@@ -48,7 +48,7 @@ impl Default for SolinaConfig {
             mempool_capacity: 5,
             storage_file_path: PathBuf::from("solina-data.sqlite"),
             socket_address: "127.0.0.1:3000".parse().unwrap(),
-            auth_credential_timeout: 100,
+            auth_credential_timeout: 360,
         }
     }
 }

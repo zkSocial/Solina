@@ -35,3 +35,15 @@ pub struct GetBatchIntentsResponse {
     pub(crate) is_success: bool,
     pub(crate) message: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetAuthCredentialsRequest {
+    pub(crate) address: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct GetAuthCredentialsResponse {
+    pub(crate) challenge: String,
+    pub(crate) is_success: bool,
+    pub(crate) message: String,
+}

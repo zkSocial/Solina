@@ -44,12 +44,6 @@ pub(crate) fn verify_signature(
     challenge: String,
     signature: String,
 ) -> Result<Json<Value>> {
-    // TODO: to be refactored (we will need the worker as state). We are currently
-    // querying the challenge store via the public key, we should have an id as well
-    // to query the latest available challenge for the given public key
-
-    let challenge = "vhbo85kmcqGMjATMiktMPbweQN8q7k59".to_string();
-
     info!("The challenge is: {}", challenge);
 
     let address: Address = Address::from_str(&address).expect(&format!(
@@ -57,7 +51,6 @@ pub(crate) fn verify_signature(
         address
     ));
     info!("The address is: {:?}", address);
-    info!("The signature is: {:?}", Signature::from_str(&signature));
 
     let recovered_address = match Signature::from_str(&signature) {
         Ok(sig) => sig.verify(challenge, address).map_err(|e| {
