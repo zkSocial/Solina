@@ -24,7 +24,7 @@ pub struct AppState {
     solina_worker: Arc<RwLock<SolinaWorker>>,
 }
 
-fn store_intent_with_auth_route() -> Router {
+fn store_intent_with_auth_route(app_state: AppState) -> Router {
     Router::new()
         .route("/store_intent", post(store_intent_handler))
         .layer(EthereumAuthMiddlewareLayer {})
@@ -35,10 +35,10 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
         solina_worker: Arc::new(RwLock::new(solina_worker)),
     };
 
-    let store_intent_with_auth_route = store_intent_with_auth_route();
+    let store_intent_with_auth_route = store_intent_with_auth_route(app_state);
 
     Router::new()
-        .nest(store_intent_with_auth_route)
+        .nest("/store_intent", store_intent_with_auth_route)
         .route("/get_intent", get(get_intent_handler))
         .route("/get_batch_intents", get(get_batch_intents_handler))
         .with_state(app_state)

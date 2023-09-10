@@ -3911,6 +3911,8 @@ dependencies = [
  "axum",
  "env_logger",
  "ethers",
+ "futures",
+ "futures-util",
  "hex",
  "http",
  "hyper",
