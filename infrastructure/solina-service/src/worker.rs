@@ -91,7 +91,10 @@ impl SolinaWorker {
             encode(intent_structured_hash)
         );
         let intent_id = self.update_current_id();
+        info!("Current intent id is: {}", intent_id);
         let batch = self.mempool.insert(intent_id, intent);
+
+        info!("Current batch is: {:?}", batch);
 
         if batch.is_none() {
             return Ok(StoreIntentResponse {

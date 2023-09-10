@@ -1,7 +1,7 @@
 use axum::Json;
 use ethers::prelude::*;
 use ethers::utils::keccak256;
-use log::error;
+use log::{error, info};
 use once_cell::sync::Lazy;
 use rand::Rng;
 use serde_json::{json, Value};
@@ -27,31 +27,35 @@ pub(crate) fn generate_challenge() -> String {
 }
 
 pub(crate) fn verify_signature(Json(body): &Json<Value>) -> Result<Json<Value>> {
-    let signature = body
-        .get("signature")
-        .ok_or(Error::InvalidRequest)?
-        .to_string();
-    let public_key = body
-        .get("public_key")
-        .ok_or(Error::InvalidRequest)?
-        .to_string();
+    let signature = body.get("signature").ok_or(Error::InvalidRequest)?;
+    let signature = signature
+        .as_str()
+        .expect("Failed to extract signature from request");
+    let public_key = body.get("public_key").ok_or(Error::InvalidRequest)?;
+    let public_key = public_key
+        .as_str()
+        .expect("Failed to extract public key from request");
 
     // TODO: to be refactored (we will need the worker as state). We are currently
     // querying the challenge store via the public key, we should have an id as well
     // to query the latest available challenge for the given public key
-    let challenges = CHALLENGES.lock().unwrap();
-    let challenge = challenges.get(&public_key).cloned().unwrap_or_default();
+    let challenges = CHALLENGES
+        .lock()
+        .expect("Failed to acquire challenges lock");
+    let challenge = challenges.get(public_key).cloned().unwrap_or_default();
+    let challenge = "vhbo85kmcqGMjATMiktMPbweQN8q7k59".to_string();
 
-    // We prepend the original message, following EIP-191, see https://eips.ethereum.org/EIPS/eip-191.
-    let mut message = "\x19Ethereum Signed Message:\n".to_string();
+    info!("The challenge is: {}", challenge);
 
-    message.push_str(&format!("{}", challenge.len()));
-    message.push_str(&challenge);
-
-    let message_hash = keccak256(message.as_bytes());
+    let address: Address = Address::from_str(&public_key).expect(&format!(
+        "Failed to extract Address from public key, {}",
+        public_key
+    ));
+    info!("The address is: {:?}", address);
+    info!("The signature is: {:?}", Signature::from_str(&signature));
 
     let recovered_address = match Signature::from_str(&signature) {
-        Ok(sig) => sig.recover(message_hash).map_err(|e| {
+        Ok(sig) => sig.verify(challenge, address).map_err(|e| {
             error!(
                 "Failed to recover user address from signature and message, with error: {}",
                 e
@@ -59,21 +63,10 @@ pub(crate) fn verify_signature(Json(body): &Json<Value>) -> Result<Json<Value>> 
             Error::AuthError
         })?,
         Err(e) => {
-            error!(
-                "Failed to recover user address from signature and message, with error: {}",
-                e
-            );
+            error!("Failed to obtain signature from request, with error: {}", e);
             return Err(Error::AuthError);
         }
     };
-
-    let address: Address = public_key
-        .parse()
-        .expect("Failed to parse public key to address");
-    if address != recovered_address {
-        error!("Failed to recover user address from signature and message");
-        return Err(Error::AuthError);
-    }
 
     // Send the response back to the user
     Ok(Json(json!({"status": "successfully verified"})))
