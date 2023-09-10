@@ -14,7 +14,7 @@ use crate::{
 use hex::encode;
 use log::{error, info};
 use solina::{intent::Intent, structured_hash::StructuredHashInterface};
-use storage_sqlite::SolinaStorage;
+use storage_sqlite::{AuthCredentials, SolinaStorage};
 
 pub struct SolinaWorker {
     mempool: SolinaMempool,
@@ -283,6 +283,52 @@ impl SolinaWorker {
             challenge,
             is_success: true,
             message: "New challenge successfully generated".to_string(),
+        })
+    }
+}
+
+impl SolinaWorker {
+    pub(crate) fn get_current_credential(&mut self, address: &String) -> AuthCredentials {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .expect("Failed to store intent batch to database, with error: {}");
+
+        tx.get_current_auth_credential(address)
+            .expect("Failed to insert new credential to DB")
+    }
+
+    pub(crate) fn update_is_valid_credential(&mut self, id: i32) -> Result<()> {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .map_err(|e| {
+                error!(
+                    "Failed to update is_valid credential to database, with error: {}",
+                    e
+                );
+                Error::InternalError
+            })?;
+        tx.update_is_valid_credential(id).map_err(|e| {
+            error!("Failed to update is_auth credential, with error: {}", e);
+            Error::InternalError
+        })
+    }
+
+    pub(crate) fn update_is_auth_credential(&mut self, id: i32) -> Result<()> {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .map_err(|e| {
+                error!(
+                    "Failed to update is_auth credential to database, with error: {}",
+                    e
+                );
+                Error::InternalError
+            })?;
+        tx.update_is_auth_credential(id).map_err(|e| {
+            error!("Failed to update is_valid credential, with error: {}", e);
+            Error::InternalError
         })
     }
 }
