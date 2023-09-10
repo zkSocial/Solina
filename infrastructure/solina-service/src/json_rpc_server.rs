@@ -1,14 +1,12 @@
 use log::{error, info};
 use std::sync::{Arc, RwLock};
 
-use crate::{
-    error::{Error, Result},
-};
+use crate::error::{Error, Result};
 
 use axum::{
     extract::FromRef,
     extract::{Json, State},
-    routing::{get},
+    routing::get,
     Router,
 };
 

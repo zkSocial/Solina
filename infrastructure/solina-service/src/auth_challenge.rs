@@ -42,10 +42,8 @@ pub(crate) fn verify_signature(
 ) -> Result<Json<Value>> {
     info!("The challenge is: {}", challenge);
 
-    let address: Address = Address::from_str(&address).expect(&format!(
-        "Failed to extract Address from public key, {}",
-        address
-    ));
+    let address: Address = Address::from_str(&address)
+        .unwrap_or_else(|_| panic!("Failed to extract Address from public key, {}", address));
     info!("The address is: {:?}", address);
 
     match Signature::from_str(&signature) {

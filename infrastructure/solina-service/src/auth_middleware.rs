@@ -1,5 +1,5 @@
 use crate::{
-    auth_challenge::{extract_address, extract_signature,  verify_signature},
+    auth_challenge::{extract_address, extract_signature, verify_signature},
     json_rpc_server::AppState,
 };
 use axum::body::{boxed, Body, BoxBody};
@@ -8,9 +8,7 @@ use axum::{
     response::Response,
 };
 use futures_util::future::BoxFuture;
-use hyper::{
-    body::{to_bytes},
-};
+use hyper::body::to_bytes;
 use std::sync::{Arc, Mutex};
 // use http_body::combinators::box_body::UnsyncBoxBody;
 use log::{error, info};
@@ -44,8 +42,8 @@ where
         let app_state = self.app_state.clone();
 
         Box::pin(async move {
-            match req.method() {
-                &http::Method::GET => {
+            match *req.method() {
+                http::Method::GET => {
                     let future = {
                         let mut inner_service = inner.lock().unwrap();
                         info!("Sending request to inner service");
@@ -53,7 +51,7 @@ where
                     };
                     future.await
                 }
-                &http::Method::POST => {
+                http::Method::POST => {
                     let (parts, body) = req.into_parts();
                     let body_bytes = to_bytes(body).await.expect("Failed to extract body bytes");
 
