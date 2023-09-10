@@ -6,29 +6,47 @@ use crate::error::{Error, Result};
 use axum::{
     extract::FromRef,
     extract::{Json, State},
-    routing::{get, post},
+    routing::get,
     Router,
 };
 
 use crate::{
+    auth_middleware::EthereumAuthMiddlewareLayer,
     types::{
-        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
-        StoreIntentRequest, StoreIntentResponse,
+        GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
+        StoreIntentResponse,
     },
     worker::SolinaWorker,
 };
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
-    solina_worker: Arc<RwLock<SolinaWorker>>,
+    pub(crate) solina_worker: Arc<RwLock<SolinaWorker>>,
 }
+
+// fn store_intent_with_auth_route(app_state: AppState) -> Router {
+//     Router::new()
+//         .route("/store_intent", post(store_intent_handler))
+//         .layer(EthereumAuthMiddlewareLayer {})
+//         .with_state(app_state)
+// }
 
 pub fn routes(solina_worker: SolinaWorker) -> Router {
     let app_state = AppState {
         solina_worker: Arc::new(RwLock::new(solina_worker)),
     };
+
+    // let store_intent_with_auth_route = store_intent_with_auth_route(app_state.clone());
+
     Router::new()
-        .route("/store_intent", post(store_intent_handler))
+        .route(
+            "/store_intent",
+            get(get_auth_credentials_handler).post(store_intent_handler),
+        )
+        .layer(EthereumAuthMiddlewareLayer {
+            app_state: app_state.clone(),
+        })
         .route("/get_intent", get(get_intent_handler))
         .route("/get_batch_intents", get(get_batch_intents_handler))
         .with_state(app_state)
@@ -94,5 +112,21 @@ async fn get_batch_intents_handler(
         .write()
         .expect("Failed to acquire lock")
         .handle_get_batch_intents_request(request);
+    Json(response)
+}
+
+async fn get_auth_credentials_handler(
+    State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
+    Json(request): Json<GetAuthCredentialsRequest>,
+) -> Json<Result<GetAuthCredentialsResponse>> {
+    info!(
+        "New GET request for authentication credentials, for address: {}",
+        request.address
+    );
+    let response = solina_worker
+        .write()
+        .expect("Failed to acquire lock")
+        .handle_get_auth_credentials_request(request);
+
     Json(response)
 }

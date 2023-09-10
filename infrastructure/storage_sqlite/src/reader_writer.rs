@@ -1,4 +1,8 @@
-use crate::{error::SolinaStorageError, models::Intent};
+use crate::{
+    error::SolinaStorageError,
+    models::{AuthCredentials, Intent, NewAuthCredentials},
+};
+use chrono::Utc;
 use diesel::{
     sql_query, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SqliteConnection,
 };
@@ -89,6 +93,28 @@ impl<'a> ReadWriterTransaction<'a> {
         }
     }
 
+    pub fn get_current_auth_credential(
+        &mut self,
+        address: &String,
+    ) -> Result<AuthCredentials, SolinaStorageError> {
+        use crate::schema::auth_credentials;
+
+        let credential = auth_credentials::table
+            .filter(auth_credentials::address.eq(address))
+            .order(auth_credentials::id.desc())
+            .first(self.connection())
+            .optional()
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        match credential {
+            Some(output) => Ok(output),
+            None => Err(SolinaStorageError::StorageError(format!(
+                "Could not find credential for address: {}",
+                address,
+            ))),
+        }
+    }
+
     // ----------------------------------------------- Write methods -----------------------------------------------
     pub fn store_intents(
         &mut self,
@@ -98,10 +124,53 @@ impl<'a> ReadWriterTransaction<'a> {
 
         let intents = intents
             .iter()
-            .map(|(id, intent)| Intent::from_intent(intent, *id as i32 + 1))
+            .map(|(id, intent)| Intent::from_intent(intent, *id as i32))
             .collect::<Vec<_>>();
         diesel::insert_into(intents::table)
             .values(intents)
+            .execute(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn insert_new_credential(
+        &mut self,
+        address: String,
+        challenge: String,
+    ) -> Result<(), SolinaStorageError> {
+        use crate::schema::auth_credentials;
+
+        diesel::insert_into(auth_credentials::table)
+            .values(NewAuthCredentials {
+                address,
+                challenge,
+                is_auth: false,
+                is_valid: true,
+                created_at: Utc::now().naive_utc(),
+            })
+            .execute(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn update_is_auth_credential(&mut self, id: i32) -> Result<(), SolinaStorageError> {
+        use crate::schema::auth_credentials;
+
+        diesel::update(auth_credentials::table.filter(auth_credentials::id.eq(id)))
+            .set(auth_credentials::is_auth.eq(true))
+            .execute(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn update_is_valid_credential(&mut self, id: i32) -> Result<(), SolinaStorageError> {
+        use crate::schema::auth_credentials;
+
+        diesel::update(auth_credentials::table.filter(auth_credentials::id.eq(id)))
+            .set(auth_credentials::is_valid.eq(false))
             .execute(self.connection())
             .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 

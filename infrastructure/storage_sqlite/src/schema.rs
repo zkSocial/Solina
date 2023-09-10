@@ -12,3 +12,14 @@ table! {
         created_at -> Timestamp,
     }
 }
+
+table! {
+    auth_credentials(id) {
+        id -> diesel::sql_types::Integer,
+        address -> Text,
+        challenge -> Text,
+        is_auth -> Bool,
+        is_valid -> Bool,
+        created_at -> Timestamp,
+    }
+}

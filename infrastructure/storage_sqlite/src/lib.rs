@@ -15,6 +15,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+pub use models::AuthCredentials;
+
 #[derive(Clone)]
 pub struct SolinaStorage {
     connection: Arc<Mutex<SqliteConnection>>,

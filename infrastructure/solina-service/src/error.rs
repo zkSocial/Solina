@@ -7,6 +7,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[derive(Clone, Debug, Serialize, strum_macros::AsRefStr)]
 #[serde(tag = "type", content = "data")]
 pub enum Error {
+    // Authentication errors.
+    AuthError,
     // -- Request errors.
     InvalidRequest,
     // -- Server errors.
@@ -36,6 +38,8 @@ impl Error {
     pub fn client_status_and_error(&self) -> (StatusCode, ClientError) {
         #[allow(unreachable_patterns)]
         match self {
+            // -- Auth errors.
+            Self::AuthError => (StatusCode::INTERNAL_SERVER_ERROR, ClientError::AUTH_ERROR),
             // -- Request errors.
             Self::InvalidRequest => (StatusCode::BAD_REQUEST, ClientError::INVALID_PARAMS),
             // -- Server
@@ -59,6 +63,7 @@ impl Error {
 #[derive(Debug, strum_macros::AsRefStr)]
 #[allow(non_camel_case_types)]
 pub enum ClientError {
+    AUTH_ERROR,
     INTERNAL_SERVER_ERROR,
     INVALID_PARAMS,
     SERVICE_ERROR,

@@ -1,18 +1,20 @@
 use crate::{
-    config::SolinaConfig,
-    error::{Error, Result},
-};
-use crate::{
+    auth_challenge::generate_challenge,
     mempool::SolinaMempool,
     types::{
-        GetBatchIntentsRequest, GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse,
-        StoreIntentRequest, StoreIntentResponse,
+        GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
+        StoreIntentResponse,
     },
+};
+use crate::{
+    config::SolinaConfig,
+    error::{Error, Result},
 };
 use hex::encode;
 use log::{error, info};
 use solina::{intent::Intent, structured_hash::StructuredHashInterface};
-use storage_sqlite::SolinaStorage;
+use storage_sqlite::{AuthCredentials, SolinaStorage};
 
 pub struct SolinaWorker {
     mempool: SolinaMempool,
@@ -49,6 +51,10 @@ impl SolinaWorker {
 impl SolinaWorker {
     pub fn config(&self) -> &SolinaConfig {
         &self.config
+    }
+
+    pub fn storage_connection(&mut self) -> &mut SolinaStorage {
+        &mut self.storage_connection
     }
 }
 
@@ -91,7 +97,10 @@ impl SolinaWorker {
             encode(intent_structured_hash)
         );
         let intent_id = self.update_current_id();
+        info!("Current intent id is: {}", intent_id);
         let batch = self.mempool.insert(intent_id, intent);
+
+        info!("Current batch is: {:?}", batch);
 
         if batch.is_none() {
             return Ok(StoreIntentResponse {
@@ -239,6 +248,87 @@ impl SolinaWorker {
             batch_intents_json,
             message: String::from("GET batch intents successfully"),
             is_success: true,
+        })
+    }
+
+    pub fn handle_get_auth_credentials_request(
+        &mut self,
+        request: GetAuthCredentialsRequest,
+    ) -> Result<GetAuthCredentialsResponse> {
+        let address = request.address;
+        let challenge = generate_challenge();
+
+        {
+            let mut tx = self
+                .storage_connection()
+                .create_transaction()
+                .map_err(|e| {
+                    error!(
+                        "Failed to store intent batch to database, with error: {}",
+                        e
+                    );
+                    Error::InternalError
+                })?;
+
+            tx.insert_new_credential(address, challenge.clone())
+                .map_err(|e| {
+                    error!("Failed to insert new credential to DB, with error: {}", e);
+                    Error::InternalError
+                })?;
+
+            info!("New challenge {}, stored in the database", challenge);
+        }
+
+        Ok(GetAuthCredentialsResponse {
+            challenge,
+            is_success: true,
+            message: "New challenge successfully generated".to_string(),
+        })
+    }
+}
+
+impl SolinaWorker {
+    pub(crate) fn get_current_credential(&mut self, address: &String) -> AuthCredentials {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .expect("Failed to store intent batch to database, with error: {}");
+
+        tx.get_current_auth_credential(address)
+            .expect("Failed to insert new credential to DB")
+    }
+
+    pub(crate) fn update_is_valid_credential(&mut self, id: i32) -> Result<()> {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .map_err(|e| {
+                error!(
+                    "Failed to update is_valid credential to database, with error: {}",
+                    e
+                );
+                Error::InternalError
+            })?;
+        tx.update_is_valid_credential(id).map_err(|e| {
+            error!("Failed to update is_auth credential, with error: {}", e);
+            Error::InternalError
+        })
+    }
+
+    pub(crate) fn update_is_auth_credential(&mut self, id: i32) -> Result<()> {
+        let mut tx = self
+            .storage_connection()
+            .create_transaction()
+            .map_err(|e| {
+                error!(
+                    "Failed to update is_auth credential to database, with error: {}",
+                    e
+                );
+                Error::InternalError
+            })?;
+        tx.update_is_auth_credential(id).map_err(|e| {
+            error!("Failed to update is_valid credential, with error: {}", e);
+            Error::InternalError
         })
     }
 }
