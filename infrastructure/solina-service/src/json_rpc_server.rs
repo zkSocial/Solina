@@ -2,14 +2,13 @@ use log::{error, info};
 use std::sync::{Arc, RwLock};
 
 use crate::{
-    auth_challenge::generate_challenge,
     error::{Error, Result},
 };
 
 use axum::{
     extract::FromRef,
     extract::{Json, State},
-    routing::{get, post},
+    routing::{get},
     Router,
 };
 

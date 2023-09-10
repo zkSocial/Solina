@@ -1,15 +1,11 @@
 use axum::Json;
 use ethers::prelude::*;
-use ethers::utils::keccak256;
 use log::{error, info};
 use rand::Rng;
 use serde_json::{json, Value};
-use std::{collections::HashMap, str::FromStr, sync::Mutex};
+use std::str::FromStr;
 
-use crate::{
-    error::{Error, Result},
-    json_rpc_server::AppState,
-};
+use crate::error::{Error, Result};
 
 pub(crate) fn generate_challenge() -> String {
     let challenge: String = rand::thread_rng()
@@ -52,7 +48,7 @@ pub(crate) fn verify_signature(
     ));
     info!("The address is: {:?}", address);
 
-    let recovered_address = match Signature::from_str(&signature) {
+    match Signature::from_str(&signature) {
         Ok(sig) => sig.verify(challenge, address).map_err(|e| {
             error!(
                 "Failed to recover user address from signature and message, with error: {}",

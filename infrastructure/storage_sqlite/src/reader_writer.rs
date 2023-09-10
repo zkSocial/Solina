@@ -150,7 +150,7 @@ impl<'a> ReadWriterTransaction<'a> {
                 created_at: Utc::now().naive_utc(),
             })
             .execute(self.connection())
-            .map_err(|e| SolinaStorageError::StorageError(e.to_string()));
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
         Ok(())
     }
@@ -161,7 +161,7 @@ impl<'a> ReadWriterTransaction<'a> {
         diesel::update(auth_credentials::table.filter(auth_credentials::id.eq(id)))
             .set(auth_credentials::is_auth.eq(true))
             .execute(self.connection())
-            .map_err(|e| SolinaStorageError::StorageError(e.to_string()));
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
         Ok(())
     }
@@ -172,7 +172,7 @@ impl<'a> ReadWriterTransaction<'a> {
         diesel::update(auth_credentials::table.filter(auth_credentials::id.eq(id)))
             .set(auth_credentials::is_valid.eq(false))
             .execute(self.connection())
-            .map_err(|e| SolinaStorageError::StorageError(e.to_string()));
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
         Ok(())
     }

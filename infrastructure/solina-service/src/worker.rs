@@ -272,7 +272,7 @@ impl SolinaWorker {
 
             tx.insert_new_credential(address, challenge.clone())
                 .map_err(|e| {
-                    error!("Failed to insert new credential to DB");
+                    error!("Failed to insert new credential to DB, with error: {}", e);
                     Error::InternalError
                 })?;
 

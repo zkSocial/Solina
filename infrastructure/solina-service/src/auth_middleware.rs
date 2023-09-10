@@ -1,17 +1,15 @@
 use crate::{
-    auth_challenge::{extract_address, extract_signature, generate_challenge, verify_signature},
+    auth_challenge::{extract_address, extract_signature,  verify_signature},
     json_rpc_server::AppState,
 };
 use axum::body::{boxed, Body, BoxBody};
 use axum::{
     http::{Request, StatusCode},
     response::Response,
-    Json,
 };
 use futures_util::future::BoxFuture;
 use hyper::{
-    body::{to_bytes, Bytes},
-    http::request::Parts,
+    body::{to_bytes},
 };
 use std::sync::{Arc, Mutex};
 // use http_body::combinators::box_body::UnsyncBoxBody;
@@ -22,126 +20,6 @@ use tower::{layer::Layer, Service};
 pub struct EthereumAuthMiddleware<S> {
     inner: Arc<Mutex<S>>,
     pub(crate) app_state: AppState,
-}
-
-impl<S> EthereumAuthMiddleware<S>
-where
-    S: Service<Request<Body>, Response = Response<BoxBody>> + Send + 'static,
-    S::Future: Send + 'static,
-{
-    fn inner_call(&self, req: Request<Body>) -> BoxFuture<'static, Result<S::Response, S::Error>> {
-        let future = {
-            let mut inner_service = self.inner.lock().unwrap();
-            info!("Sending request to inner service");
-            inner_service.call(req)
-        };
-        Box::pin(future)
-    }
-
-    fn handle_authentication(
-        &self,
-        parts: Parts,
-        body_bytes: Bytes,
-    ) -> BoxFuture<'static, Result<S::Response, S::Error>> {
-        let json_value = serde_json::from_slice(body_bytes.as_ref())
-            .expect("Failed to extract JSON from request bytes");
-
-        info!("The provided JSON value is: {}", json_value);
-
-        let address = extract_address(&json_value).expect("Failed to extract signature");
-        let signature = extract_signature(&json_value).expect("Failed to extract signature");
-
-        let credential = {
-            let mut app_state_write = self
-                .app_state
-                .solina_worker
-                .write()
-                .expect("Failed to write to worker");
-            app_state_write.get_current_credential(&address)
-        };
-
-        info!(
-            "Got new credential for address = {} and id = {}, with challenge = {}",
-            address, credential.id, credential.challenge
-        );
-
-        let result = {
-            let now = chrono::prelude::Utc::now().naive_utc();
-            let config_auth_timeout = match self.app_state.solina_worker.read() {
-                Ok(inner) => inner.config().auth_credential_timeout(),
-                Err(e) => {
-                    error!("Failed to get read access to worker");
-                    let response = Response::builder()
-                        .status(StatusCode::UNAUTHORIZED)
-                        .body(boxed(Body::from(
-                            "InvalidRequest: User does not have a valid challenge in memory to sign",
-                        )))
-                        .expect("Failed to form body");
-                    return Box::pin(async move { Ok(response) });
-                }
-            };
-            if credential.is_auth
-                && now
-                    .signed_duration_since(credential.created_at)
-                    .num_seconds()
-                    <= config_auth_timeout as i64
-            {
-                let req = Request::from_parts(parts, Body::from(body_bytes));
-                return self.inner_call(req);
-            } else if now
-                .signed_duration_since(credential.created_at)
-                .num_seconds()
-                <= config_auth_timeout as i64
-            {
-                verify_signature(address, credential.challenge.clone(), signature)
-            } else {
-                let response = Response::builder()
-                    .status(StatusCode::UNAUTHORIZED)
-                    .body(boxed(Body::from(
-                        "InvalidRequest: User does not have a valid challenge in memory to sign",
-                    )))
-                    .expect("Failed to form body");
-                let mut app_state_write = match self.app_state.solina_worker.write() {
-                    Ok(inner) => inner,
-                    Err(e) => {
-                        error!("Failed to write to worker");
-                        return Box::pin(async move { Ok(response) });
-                    }
-                };
-                if let Err(e) = app_state_write.update_is_valid_credential(credential.id) {
-                    error!("Failed to update credential, with error: {}", e);
-                }
-                return Box::pin(async move { Ok(response) });
-            }
-        };
-        if let Err(e) = result {
-            error!("Failed to verify challenge signature, with error: {}", e);
-            let response = Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(boxed(Body::from("Invalid challenge signature")))
-                .expect("Failed to form body");
-            return Box::pin(async move { Ok(response) });
-        } else {
-            // otherwise update the authentication in the database
-            let mut app_state_write = self
-                .app_state
-                .solina_worker
-                .write()
-                .expect("Failed to write to worker");
-            if let Err(e) = app_state_write.update_is_auth_credential(credential.id) {
-                error!("Failed to update credential, with error: {}", e);
-                let response = Response::builder()
-                    .status(StatusCode::UNAUTHORIZED)
-                    .body(boxed(Body::from("InternalError")))
-                    .expect("Failed to form body");
-                return Box::pin(async move { Ok(response) });
-            }
-        }
-        // Reconstruct the request
-        let req = Request::from_parts(parts, Body::from(body_bytes));
-        // if signature verification is successful, forward the req call to the inner service
-        self.inner_call(req)
-    }
 }
 
 impl<S> Service<Request<Body>> for EthereumAuthMiddleware<S>
@@ -166,10 +44,16 @@ where
         let app_state = self.app_state.clone();
 
         Box::pin(async move {
-        match req.method() {
-            &http::Method::GET => self.inner_call(req),
-            &http::Method::POST => {
-                
+            match req.method() {
+                &http::Method::GET => {
+                    let future = {
+                        let mut inner_service = inner.lock().unwrap();
+                        info!("Sending request to inner service");
+                        inner_service.call(req)
+                    };
+                    future.await
+                }
+                &http::Method::POST => {
                     let (parts, body) = req.into_parts();
                     let body_bytes = to_bytes(body).await.expect("Failed to extract body bytes");
 
@@ -184,8 +68,7 @@ where
                         extract_signature(&json_value).expect("Failed to extract signature");
 
                     let credential = {
-                        let mut app_state_write = self
-                            .app_state
+                        let mut app_state_write = app_state
                             .solina_worker
                             .write()
                             .expect("Failed to write to worker");
@@ -199,10 +82,10 @@ where
 
                     let result = {
                         let now = chrono::prelude::Utc::now().naive_utc();
-                        let config_auth_timeout = match self.app_state.solina_worker.read() {
+                        let config_auth_timeout = match app_state.solina_worker.read() {
                             Ok(inner) => inner.config().auth_credential_timeout(),
                             Err(e) => {
-                                error!("Failed to get read access to worker");
+                                error!("Failed to get read access to worker, with error: {}", e);
                                 let response = Response::builder()
                         .status(StatusCode::UNAUTHORIZED)
                         .body(boxed(Body::from(
@@ -239,10 +122,10 @@ where
                         "InvalidRequest: User does not have a valid challenge in memory to sign",
                     )))
                     .expect("Failed to form body");
-                            let mut app_state_write = match self.app_state.solina_worker.write() {
+                            let mut app_state_write = match app_state.solina_worker.write() {
                                 Ok(inner) => inner,
                                 Err(e) => {
-                                    error!("Failed to write to worker");
+                                    error!("Failed to write to worker, with error: {}", e);
                                     return Ok(response);
                                 }
                             };
@@ -263,8 +146,7 @@ where
                         return Ok(response);
                     } else {
                         // otherwise update the authentication in the database
-                        let mut app_state_write = self
-                            .app_state
+                        let mut app_state_write = app_state
                             .solina_worker
                             .write()
                             .expect("Failed to write to worker");
@@ -281,22 +163,22 @@ where
                     let req = Request::from_parts(parts, Body::from(body_bytes));
                     // if signature verification is successful, forward the req call to the inner service
                     let future = {
-                        let mut inner_service = self.inner.lock().unwrap();
+                        let mut inner_service = inner.lock().unwrap();
                         info!("Sending request to inner service");
                         inner_service.call(req)
                     };
                     future.await
-            }
-            _ => {
-                let future = {
-                    let mut inner_service = self.inner.lock().unwrap();
-                    info!("Sending request to inner service");
-                    inner_service.call(req)
-                };
-                future.await
+                }
+                _ => {
+                    let future = {
+                        let mut inner_service = inner.lock().unwrap();
+                        info!("Sending request to inner service");
+                        inner_service.call(req)
+                    };
+                    future.await
+                }
             }
         })
-        
     }
 }
 

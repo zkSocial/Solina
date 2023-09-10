@@ -1,5 +1,5 @@
 use crate::schema::auth_credentials;
-use chrono::{NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use diesel::{Identifiable, Insertable, Queryable};
 
 #[derive(Debug, Queryable, Identifiable)]
