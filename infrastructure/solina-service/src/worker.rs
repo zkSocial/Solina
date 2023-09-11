@@ -288,14 +288,19 @@ impl SolinaWorker {
 }
 
 impl SolinaWorker {
-    pub(crate) fn get_current_credential(&mut self, address: &String) -> AuthCredentials {
+    pub(crate) fn get_current_credential(&mut self, address: &String) -> Result<AuthCredentials> {
         let mut tx = self
             .storage_connection()
             .create_transaction()
-            .expect("Failed to store intent batch to database, with error: {}");
+            .map_err(|e| {
+                error!("Failed to connect to the database, with error: {}", e);
+                Error::InternalError
+            })?;
 
-        tx.get_current_auth_credential(address)
-            .expect("Failed to insert new credential to DB")
+        tx.get_current_auth_credential(address).map_err(|e| {
+            error!("Failed to insert new credential to DB, with error: {}", e);
+            Error::InternalError
+        })
     }
 
     pub(crate) fn update_is_valid_credential(&mut self, id: i32) -> Result<()> {

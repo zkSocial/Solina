@@ -123,10 +123,14 @@ async fn get_auth_credentials_handler(
         "New GET request for authentication credentials, for address: {}",
         request.address
     );
-    let response = solina_worker
-        .write()
-        .expect("Failed to acquire lock")
-        .handle_get_auth_credentials_request(request);
-
-    Json(response)
+    let write_lock = solina_worker.write();
+    if let Err(e) = write_lock {
+        error!("Failed to acquire worker lock, with error: {}", e);
+        return Json(Err(Error::InternalError));
+    } else {
+        let response = write_lock
+            .unwrap()
+            .handle_get_auth_credentials_request(request);
+        Json(response)
+    }
 }
