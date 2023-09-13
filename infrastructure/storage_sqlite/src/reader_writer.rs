@@ -124,11 +124,12 @@ impl<'a> ReadWriterTransaction<'a> {
         use crate::schema::intents;
 
         let current_batch_id = current_batch_id::table
+            .select(current_batch_id::id)
             .order(current_batch_id::id.desc())
             .first(self.connection())
             .optional()
             .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?
-            .unwrap_or(0);
+            .unwrap_or(0 as i32);
         let intents = intents
             .iter()
             .map(|(id, intent)| Intent::from_intent(intent, *id as i32, current_batch_id))
