@@ -1,0 +1,4 @@
+ALTER TABLE intents (
+    ADD COLUMN batch_id INTEGER NOT NULL,
+    ADD COLUMN expiry_date DATETIME NOT NULL
+);

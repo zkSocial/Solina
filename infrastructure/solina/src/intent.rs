@@ -1,4 +1,5 @@
 use crate::{structured_hash::StructuredHashInterface, PublicKey, Signature, TokenAddress};
+use chrono::NaiveDateTime;
 use keccak_hash::keccak;
 use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
@@ -107,6 +108,7 @@ pub struct Intent {
     pub inputs: IntentInputs,
     pub constraints: IntentConstraints,
     pub signature: Signature,
+    pub expiry_date: NaiveDateTime,
 }
 
 impl Intent {
@@ -115,12 +117,14 @@ impl Intent {
         inputs: IntentInputs,
         constraints: IntentConstraints,
         signature: Signature,
+        expiry_date: NaiveDateTime,
     ) -> Self {
         Self {
             public_key,
             inputs,
             constraints,
             signature,
+            expiry_date,
         }
     }
 
@@ -130,6 +134,10 @@ impl Intent {
 
     pub fn signature(&self) -> &Signature {
         &self.signature
+    }
+
+    pub fn expiry_date(&self) -> &NaiveDateTime {
+        &self.expiry_date
     }
 }
 

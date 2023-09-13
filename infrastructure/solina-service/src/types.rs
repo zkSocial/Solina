@@ -47,3 +47,27 @@ pub struct GetAuthCredentialsResponse {
     pub(crate) is_success: bool,
     pub(crate) message: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RegisterSolverRequest {
+    pub(crate) solver_address: String,
+    pub(crate) address_signature: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RegisterSolverResponse {
+    pub(crate) is_success: bool,
+    pub(crate) message: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DeregisterSolverRequest {
+    pub(crate) solver_address: String,
+    pub(crate) address_signature: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DeregisterSolverResponse {
+    pub(crate) is_success: bool,
+    pub(crate) message: String,
+}

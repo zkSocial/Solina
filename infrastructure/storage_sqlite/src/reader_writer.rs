@@ -1,6 +1,6 @@
 use crate::{
     error::SolinaStorageError,
-    models::{AuthCredentials, Intent, NewAuthCredentials},
+    models::{AuthCredentials, Intent, NewAuthCredentials, NewSolver},
 };
 use chrono::Utc;
 use diesel::{
@@ -120,11 +120,18 @@ impl<'a> ReadWriterTransaction<'a> {
         &mut self,
         intents: &[(i64, intent::Intent)],
     ) -> Result<(), SolinaStorageError> {
+        use crate::schema::current_batch_id;
         use crate::schema::intents;
 
+        let current_batch_id = current_batch_id::table
+            .order(current_batch_id::id.desc())
+            .first(self.connection())
+            .optional()
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?
+            .unwrap_or(0);
         let intents = intents
             .iter()
-            .map(|(id, intent)| Intent::from_intent(intent, *id as i32))
+            .map(|(id, intent)| Intent::from_intent(intent, *id as i32, current_batch_id))
             .collect::<Vec<_>>();
         diesel::insert_into(intents::table)
             .values(intents)
@@ -171,6 +178,17 @@ impl<'a> ReadWriterTransaction<'a> {
 
         diesel::update(auth_credentials::table.filter(auth_credentials::id.eq(id)))
             .set(auth_credentials::is_valid.eq(false))
+            .execute(self.connection())
+            .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    pub fn register_solver(&mut self, address: String) -> Result<(), SolinaStorageError> {
+        use crate::schema::solvers;
+
+        diesel::insert_into(solvers::table)
+            .values(NewSolver { address })
             .execute(self.connection())
             .map_err(|e| SolinaStorageError::StorageError(e.to_string()))?;
 
