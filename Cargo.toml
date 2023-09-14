@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "infrastructure/solina",
+    "infrastructure/solina-circuits",
     "infrastructure/solina-client",
     "infrastructure/solina-service",
     "infrastructure/storage_sqlite",
