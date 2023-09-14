@@ -36,6 +36,7 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
             get(get_auth_credentials_handler).post(store_intent_handler),
         )
         .route("/register_solver", get(get_auth_credentials_handler).post(register_solver_handler))
+        .route("/deregister_solver", get(get_auth_credentials_handler).dele)
         .layer(EthereumAuthMiddlewareLayer {
             app_state: app_state.clone(),
         })
