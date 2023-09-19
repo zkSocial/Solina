@@ -1,3 +1,5 @@
+use plonky2::field::goldilocks_field::GoldilocksField;
+
 pub mod match_circuit;
 pub mod solver_circuit;
 

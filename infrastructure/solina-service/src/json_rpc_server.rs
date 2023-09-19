@@ -6,7 +6,7 @@ use crate::error::{Error, Result};
 use axum::{
     extract::FromRef,
     extract::{Json, State},
-    routing::{get},
+    routing::get,
     Router,
 };
 
@@ -35,8 +35,10 @@ pub fn routes(solina_worker: SolinaWorker) -> Router {
             "/store_intent",
             get(get_auth_credentials_handler).post(store_intent_handler),
         )
-        .route("/register_solver", get(get_auth_credentials_handler).post(register_solver_handler))
-        .route("/deregister_solver", get(get_auth_credentials_handler).dele)
+        .route(
+            "/register_solver",
+            get(get_auth_credentials_handler).post(register_solver_handler),
+        )
         .layer(EthereumAuthMiddlewareLayer {
             app_state: app_state.clone(),
         })

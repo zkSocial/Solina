@@ -161,7 +161,7 @@ impl StructuredHashInterface for Intent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::*;
+    use chrono::Utc;
 
     #[test]
     fn it_works_swap_inputs_type_encoding() {
@@ -252,6 +252,7 @@ mod tests {
             constraints: IntentConstraints {
                 min_base_token_amount: BigUint::from(64_u8),
             },
+            expiry_date: Utc::now().naive_utc(),
         };
 
         let hash = intent.structured_hash();
@@ -284,6 +285,7 @@ mod tests {
             constraints: IntentConstraints {
                 min_base_token_amount: BigUint::from(64_u8),
             },
+            expiry_date: Utc::now().naive_utc(),
         };
 
         let value = serde_json::to_value(intent).unwrap();

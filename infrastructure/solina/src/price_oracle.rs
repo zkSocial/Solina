@@ -3,8 +3,10 @@
 // to query current prices of tokens, denominated say in ETH
 use num_bigint::BigUint;
 
+use crate::TokenAddress;
+
 pub type Price = BigUint;
 
 pub trait PriceOracle {
-    pub fn get_current_price(&self, token_address: TokenAddress) -> Price;
+    fn get_current_price(&self, token_address: TokenAddress) -> Price;
 }

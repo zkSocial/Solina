@@ -1,5 +1,6 @@
-use crate::price_oracle::PriceOracle;
+use crate::{intent::Intent, price_oracle::PriceOracle};
 use num_bigint::BigUint;
+use num_traits::ops::checked::CheckedDiv;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -9,7 +10,7 @@ pub struct BatchSolution {
 }
 
 impl BatchSolution {
-    pub fn new(batch_matches: Vec<Match>, price_oracle: PriceOracle) -> Self {
+    pub fn new(batch_matches: Vec<Match>, price_oracle: impl PriceOracle) -> Self {
         // TODO: review this formula.
         //
         // 1. Notice we need to be invariant on the order of the proposed tokens.
@@ -17,9 +18,13 @@ impl BatchSolution {
         //
         // 2. Since we are denominating the volume in ETH, that might be actually be
         // already invariant, after denominating everything in ETH.
-        let total_liquidity = batch_matches.iter().sum(|m| {
-            m.swapped_amount.token_b_amount * price_oracle.get_current_price(m.intent_b.quote_token)
-        });
+        let total_liquidity = batch_matches
+            .iter()
+            .map(|m| {
+                m.swapped_amount.token_b_amount.clone()
+                    * price_oracle.get_current_price(m.intent_b.inputs.quote_token)
+            })
+            .sum();
         Self {
             batch_matches,
             total_liquidity,
@@ -35,7 +40,7 @@ pub struct Match {
 }
 
 impl Match {
-    pub fn new(intent_a: Intent, intent_b: Intent, swapped_amount: BigUint) -> Self {
+    pub fn new(intent_a: Intent, intent_b: Intent, swapped_amount: SwappedAmount) -> Self {
         Self {
             intent_a,
             intent_b,
@@ -59,7 +64,7 @@ impl SwappedAmount {
     }
 
     // TODO: check this
-    pub fn swapped_price(&self) -> BigUint {
-        self.token_b_amount.checked_div(self.token_a_amount)
+    pub fn swapped_price(&self) -> Option<BigUint> {
+        self.token_b_amount.checked_div(&self.token_a_amount)
     }
 }
