@@ -1,5 +1,4 @@
 use reqwest::Url;
-use serde_json::{json, Value};
 use solina_client::intent_client::IntentClient;
 use std::io::stdin;
 use tokio;

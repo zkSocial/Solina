@@ -1,13 +1,10 @@
 [workspace]
 members = [
-    "eth-wallet",
-    "solina-zkvm/host",
-    "solina-zkvm/methods",
     "infrastructure/solina",
+    "infrastructure/solina-circuits",
     "infrastructure/solina-client",
     "infrastructure/solina-service",
     "infrastructure/storage_sqlite",
-    "types",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

@@ -24,10 +24,12 @@ pub struct Intent {
     pub direction: bool,
     pub min_base_token_amount: i64,
     pub created_at: NaiveDateTime,
+    pub batch_id: i32,
+    pub expiry_date: NaiveDateTime,
 }
 
 impl Intent {
-    pub fn from_intent(intent: &SolinaIntent, id: i32) -> Self {
+    pub fn from_intent(intent: &SolinaIntent, id: i32, batch_id: i32) -> Self {
         let structured_hash = encode(intent.structured_hash());
         let public_key = encode(intent.public_key);
         let signature = encode(intent.signature.0);
@@ -49,6 +51,8 @@ impl Intent {
             quote_amount,
             created_at,
             direction,
+            expiry_date: intent.expiry_date,
+            batch_id,
         }
     }
 
@@ -75,11 +79,13 @@ impl Intent {
 
         let intent_constraints = IntentConstraints::new(min_base_token_amount);
         let intent_inputs = IntentInputs::new(base_token, quote_token, quote_amount, direction);
+
         Ok(SolinaIntent::new(
             public_key,
             intent_inputs,
             intent_constraints,
             Signature(signature),
+            self.expiry_date,
         ))
     }
 }

@@ -14,8 +14,8 @@ use crate::{
     auth_middleware::EthereumAuthMiddlewareLayer,
     types::{
         GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
-        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
-        StoreIntentResponse,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, RegisterSolverRequest,
+        RegisterSolverResponse, StoreIntentRequest, StoreIntentResponse,
     },
     worker::SolinaWorker,
 };
@@ -25,24 +25,19 @@ pub struct AppState {
     pub(crate) solina_worker: Arc<RwLock<SolinaWorker>>,
 }
 
-// fn store_intent_with_auth_route(app_state: AppState) -> Router {
-//     Router::new()
-//         .route("/store_intent", post(store_intent_handler))
-//         .layer(EthereumAuthMiddlewareLayer {})
-//         .with_state(app_state)
-// }
-
 pub fn routes(solina_worker: SolinaWorker) -> Router {
     let app_state = AppState {
         solina_worker: Arc::new(RwLock::new(solina_worker)),
     };
 
-    // let store_intent_with_auth_route = store_intent_with_auth_route(app_state.clone());
-
     Router::new()
         .route(
             "/store_intent",
             get(get_auth_credentials_handler).post(store_intent_handler),
+        )
+        .route(
+            "/register_solver",
+            get(get_auth_credentials_handler).post(register_solver_handler),
         )
         .layer(EthereumAuthMiddlewareLayer {
             app_state: app_state.clone(),
@@ -131,6 +126,24 @@ async fn get_auth_credentials_handler(
         let response = write_lock
             .unwrap()
             .handle_get_auth_credentials_request(request);
+        Json(response)
+    }
+}
+
+async fn register_solver_handler(
+    State(solina_worker): State<Arc<RwLock<SolinaWorker>>>,
+    Json(request): Json<RegisterSolverRequest>,
+) -> Json<Result<RegisterSolverResponse>> {
+    info!(
+        "New POST request for solver registration, {}",
+        request.solver_address
+    );
+    let write_lock = solina_worker.write();
+    if let Err(e) = write_lock {
+        error!("Failed to acquire worker lock, with error: {}", e);
+        return Json(Err(Error::InternalError));
+    } else {
+        let response = write_lock.unwrap().handle_solver_registration(request);
         Json(response)
     }
 }
