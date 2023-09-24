@@ -1,5 +1,3 @@
-use solina::BatchSolution;
-
 // CIRCUIT_DESIGN:
 //
 // 1. We need a vector commitment (Merkle tree) to the original intent batch.

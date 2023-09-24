@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 plonky2 = "0.1.4"
+plonky2_ecdsa = { git = "https://github.com/mir-protocol/plonky2-ecdsa" }
 solina = { path = "../solina/" }
+zktree = { path = "../../../zktree/" }

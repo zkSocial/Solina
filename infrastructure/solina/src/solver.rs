@@ -34,9 +34,9 @@ impl BatchSolution {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Match {
-    intent_a: Intent,
-    intent_b: Intent,
-    swapped_amount: SwappedAmount,
+    pub(crate) intent_a: Intent,
+    pub(crate) intent_b: Intent,
+    pub(crate) swapped_amount: SwappedAmount,
 }
 
 impl Match {
@@ -46,6 +46,18 @@ impl Match {
             intent_b,
             swapped_amount,
         }
+    }
+
+    pub fn intent_a(&self) -> &Intent {
+        &self.intent_a
+    }
+
+    pub fn intent_b(&self) -> &Intent {
+        &self.intent_b
+    }
+
+    pub fn swapped_amount(&self) -> &SwappedAmount {
+        &self.swapped_amount
     }
 }
 
@@ -66,5 +78,13 @@ impl SwappedAmount {
     // TODO: check this
     pub fn swapped_price(&self) -> Option<BigUint> {
         self.token_b_amount.checked_div(&self.token_a_amount)
+    }
+
+    pub fn token_a_amount(&self) -> &BigUint {
+        &self.token_a_amount
+    }
+
+    pub fn token_b_amount(&self) -> &BigUint {
+        &self.token_b_amount
     }
 }
