@@ -10,6 +10,8 @@ table! {
         direction -> Bool,
         min_base_token_amount -> BigInt,
         created_at -> Timestamp,
+        batch_id -> diesel::sql_types::Integer,
+        expiry_date -> Timestamp,
     }
 }
 
@@ -21,5 +23,18 @@ table! {
         is_auth -> Bool,
         is_valid -> Bool,
         created_at -> Timestamp,
+    }
+}
+
+table! {
+    solvers(id) {
+        id -> diesel::sql_types::Integer,
+        address -> Text,
+    }
+}
+
+table! {
+    current_batch_id(id) {
+        id -> diesel::sql_types::Integer,
     }
 }

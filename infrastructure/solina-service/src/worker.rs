@@ -3,17 +3,19 @@ use crate::{
     mempool::SolinaMempool,
     types::{
         GetAuthCredentialsRequest, GetAuthCredentialsResponse, GetBatchIntentsRequest,
-        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, StoreIntentRequest,
-        StoreIntentResponse,
+        GetBatchIntentsResponse, GetIntentRequest, GetIntentResponse, RegisterSolverRequest,
+        RegisterSolverResponse, StoreIntentRequest, StoreIntentResponse,
     },
 };
 use crate::{
     config::SolinaConfig,
     error::{Error, Result},
 };
+use ethers::prelude::*;
 use hex::encode;
 use log::{error, info};
 use solina::{intent::Intent, structured_hash::StructuredHashInterface};
+use std::str::FromStr;
 use storage_sqlite::{AuthCredentials, SolinaStorage};
 
 pub struct SolinaWorker {
@@ -285,17 +287,78 @@ impl SolinaWorker {
             message: "New challenge successfully generated".to_string(),
         })
     }
+
+    pub(crate) fn handle_solver_registration(
+        &mut self,
+        request: RegisterSolverRequest,
+    ) -> Result<RegisterSolverResponse> {
+        let RegisterSolverRequest {
+            solver_address,
+            address_signature,
+        } = request;
+
+        let address: Address = Address::from_str(&solver_address).map_err(|e| {
+            error!(
+                "Failed to extract Address from public key, address = {}, error = {}",
+                solver_address, e
+            );
+            Error::InternalError
+        })?;
+        match Signature::from_str(&address_signature) {
+            Ok(sig) => sig.verify(solver_address.clone(), address).map_err(|e| {
+                error!(
+                    "Failed to recover solver address hash from signature, with error: {}",
+                    e
+                );
+                Error::InvalidRequest
+            })?,
+            Err(e) => {
+                error!("Failed to obtain signature from request, with error: {}", e);
+                return Err(Error::InvalidRequest);
+            }
+        };
+
+        {
+            let mut tx = self
+                .storage_connection()
+                .create_transaction()
+                .map_err(|e| {
+                    error!("Failed to retrieve database transaction, with error: {}", e);
+                    Error::InternalError
+                })?;
+
+            tx.register_solver(solver_address.clone()).map_err(|e| {
+                error!("Failed to store new solver data to DB, with error: {}", e);
+                Error::InternalError
+            })?;
+
+            info!(
+                "New solver with address={}, registered in the database",
+                solver_address
+            );
+        }
+
+        Ok(RegisterSolverResponse {
+            is_success: true,
+            message: "New solver registration successfully submitted".to_string(),
+        })
+    }
 }
 
 impl SolinaWorker {
-    pub(crate) fn get_current_credential(&mut self, address: &String) -> AuthCredentials {
+    pub(crate) fn get_current_credential(&mut self, address: &String) -> Result<AuthCredentials> {
         let mut tx = self
             .storage_connection()
             .create_transaction()
-            .expect("Failed to store intent batch to database, with error: {}");
+            .map_err(|e| {
+                error!("Failed to connect to the database, with error: {}", e);
+                Error::InternalError
+            })?;
 
-        tx.get_current_auth_credential(address)
-            .expect("Failed to insert new credential to DB")
+        tx.get_current_auth_credential(address).map_err(|e| {
+            error!("Failed to insert new credential to DB, with error: {}", e);
+            Error::InternalError
+        })
     }
 
     pub(crate) fn update_is_valid_credential(&mut self, id: i32) -> Result<()> {

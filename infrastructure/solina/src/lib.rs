@@ -1,6 +1,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub mod intent;
+pub mod price_oracle;
+pub mod solver;
 pub mod structured_hash;
 
 // Big endian byte representation

@@ -9,9 +9,8 @@ use axum::{
 };
 use futures_util::future::BoxFuture;
 use hyper::body::to_bytes;
-use std::sync::{Arc, Mutex};
-// use http_body::combinators::box_body::UnsyncBoxBody;
 use log::{error, info};
+use std::sync::{Arc, Mutex};
 use tower::{layer::Layer, Service};
 
 #[derive(Clone)]
@@ -70,7 +69,17 @@ where
                             .solina_worker
                             .write()
                             .expect("Failed to write to worker");
-                        app_state_write.get_current_credential(&address)
+                        if let Ok(credential) = app_state_write.get_current_credential(&address) {
+                            credential
+                        } else {
+                            let response = Response::builder()
+                        .status(StatusCode::UNAUTHORIZED)
+                        .body(boxed(Body::from(
+                            "InvalidRequest: User does not have a valid challenge in memory to sign",
+                        )))
+                        .expect("Failed to form body");
+                            return Ok(response);
+                        }
                     };
 
                     info!(
@@ -198,13 +207,13 @@ impl<S> Layer<S> for EthereumAuthMiddlewareLayer {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use ethers::{prelude::*, utils::keccak256};
+    use ethers::prelude::*;
     use hex::encode;
 
     #[tokio::test]
     async fn challenge_auth() {
-        let challenge = "nCMWmFSDdHP86tfO2BeqSWWyJ0d5vTGx";
+        // let challenge = "0x41f69dd2ba710a232cdfbe8d84eb9ec25a272f84";
+        let challenge = "NU1iD1bjiNaZOwJj8GnomGBtPHu5gxWf";
         let wallet = ethers::prelude::Wallet::from_bytes(&[
             11, 176, 40, 212, 120, 121, 98, 44, 125, 5, 140, 11, 173, 250, 133, 5, 23, 126, 153,
             162, 85, 39, 195, 104, 241, 251, 117, 187, 10, 148, 7, 187,
